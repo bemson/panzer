@@ -67,7 +67,7 @@
           }
         } else { // otherwise, when this key is not invalid or an attribute...
           // set default property values to undefined (presence reduces prototype property lookups)
-          node.inContext = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = undefined;
+          node.inContext = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
           // capture index of this item once added
           node.index = dataset.length + 1;
           // capture depth
@@ -113,8 +113,8 @@
           flags.scan = 0;
           // with each node property available...
           for (var mbr in value) {
-            // if this member is not inherited...
-            if (value.hasOwnProperty(mbr)) {
+            // if this member is not inherited or inContext...
+            if (value.hasOwnProperty(mbr) && mbr !== 'inContext') {
               // copy key and value to new data object
               this[mbr] = value[mbr];
             }
