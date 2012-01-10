@@ -1,10 +1,3 @@
-var FT = {
-  pkgName: 'test',
-  type: function (thing) {
-    return Object.prototype.toString.call(thing).match(/\s(.+)\]$/)[1].toLowerCase();
-  }
-};
-
 module('Panzer');
 
 test('Dependencies', 4, function () {
