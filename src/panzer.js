@@ -231,7 +231,7 @@
       // define scoped call to direct the tree
       go: function (tgtIndex) {
         var
-          // placeholder for target node
+          // alias the target node (if any)
           tgtNode = tree.nodes[tgtIndex];
         // if a numeric index and valid node were targeted...
         if (tgtNode) {
@@ -250,7 +250,7 @@
         // set internal stop flag
         tree.stop = 1;
         // return truthy when this tree is in a loop, otherwise falsy
-        return tree.loop;
+        return !!tree.loop;
       },
       // add/remove post-loop callbacks
       post: function (param) {
