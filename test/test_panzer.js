@@ -88,7 +88,7 @@ test('Package', function () {
   equal(Klass.prototype, Klass.pkg(Klass.pkg().slice(-1)[0]).prototype, 'The Panzer class prototype points to the prototype of the last defined package.');
 */});
 
-module('Package-Definition');
+module('Package');
 
 test('Function/Class', function () {
   var
@@ -125,10 +125,109 @@ test('Instance', function () {
   ok(pkgInst.proxy === pkgDef2(proxy).proxy, 'The .proxy object is shared between package-instances.');
   ok(pkgInst.hasOwnProperty('tank'), 'There is a non-inherited .tank member.');
   equal(typeof pkgInst.tank, 'object', 'The .tank member is an object.');
-  ok(pkgInst.tank === pkgDef2(proxy).tank, 'The .tank object is shared between package-instances.');
+  ok(pkgInst.tank === pkgDef2(proxy).tank, 'Package-instances share a single .tank object.');
 });
 
-// test that .tank is the same object between package-instances
+module('Package-Instance.tank');
+
+test('.go()', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass({a:1, b:2})),
+    tank = pkgInst.tank;
+  equal(typeof tank.go, 'function', 'Has the .go() method.');
+  equal(tank.go(tank.currentIndex), 1, 'Returns 1 when targeting the current index.');
+  ok(tank.go(1) > 0, 'Returns a positive integer when given a valid node index.');
+  equal(tank.go(), 0, 'Returns zero when called with no arguments.');
+  ok(
+    ['', undefined, null, {}, function () {}, -1, pkgInst.nodes.length]
+      .every(function (arg) {
+        return tank.go(arg) === 0;
+      }),
+    'Returns 0 when passed a target index outside the range of available nodes.'
+  );
+});
+
+test('.stop()', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank;
+  equal(typeof tank.stop, 'function', 'Has the .stop() method.');
+  equal(typeof tank.stop(), 'boolean', 'Returns a boolean.');
+});
+
+test('.post()', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank,
+    fnc = function () {},
+    fncIdx;
+  equal(typeof tank.post, 'function', 'Has the .post() method.');
+  fncIdx = tank.post(fnc);
+  equal(typeof fncIdx, 'number', 'Returns a post-function index when given a function.');
+  ok(
+    !tank.post() &&
+    [-1, fncIdx + 1, [], {}, '']
+      .every(function (arg) {
+        return tank.post(arg) === false;
+      }),
+    'Returns false when passed nothing or anything but a valid post-function index or function.'
+  );
+  strictEqual(tank.post(fncIdx), true, 'Returns true when given a valid post-function index.');
+  strictEqual(tank.post(fncIdx), false, 'Returns false when given an previously removed post-function index.');
+});
+
+test('.id', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank;
+  equal(typeof tank.id, 'number', 'Has the .id member which is a number.');
+  equal(tank.id, 0, 'The .id value for the first Panzer instance is 0.');
+  ok(
+    [1,2,3].every(function (id) {
+      return pkgDef(new Klass()).tank.id === id;
+    }),
+    'The .id member increments by one, after each Package instance.'
+  );
+});
+
+test('.currentIndex', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([1,1,1])),
+    tank = pkgInst.tank;
+  equal(typeof tank.currentIndex, 'number', 'Has a .currentIndex member which is a number.');
+  equal(tank.currentIndex, 0, 'The value is 0, by default.');
+  ok(
+    (new Array(pkgInst.nodes.length))
+      .every(function (nil, idx) {
+        tank.go(idx);
+        return tank.currentIndex === idx;
+      }),
+    'Reflects the index of the pointer-node.'
+  );
+});
+
+test('.targetIndex', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank;
+  equal(typeof tank.targetIndex, 'number', 'Has a .targetIndex member which is a number.');
+  equal(tank.targetIndex, -1, 'The value is -1, by default.');
+});
+
+module('Package-Definition');
 
 test('.node', function () {
   var
@@ -326,82 +425,78 @@ test('.invalidKey', function () {
   equal(pkgInst.nodes.length, 2, 'The .invalidKey function is cached during compilation.');
 });
 
-module('Tank API');
-
-test('.go()', function () {
+test('.onBegin', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass({a:1, b:2})),
-    tank = pkgInst.tank;
-  equal(typeof tank.go, 'function', 'Has the .go() method.');
-  equal(tank.go(tank.currentIndex), 1, 'Returns 1 when targeting the current index.');
-  ok(tank.go(1) !== 0, 'Returns a non-zero value when given a valid node index.');
-  equal(tank.go(), 0, 'Returns zero when called with no arguments.');
-  ok(
-    ['', undefined, null, {}, function () {}, -1, pkgInst.nodes.length]
-      .every(function (arg) {
-        return tank.go(arg) === 0;
-      }),
-    'Returns 0 when passed a target index outside the range of available nodes.'
-  );
+    pkgInst = pkgDef(new Klass([1,1,1])),
+    tank = pkgInst.tank,
+    val = 0;
+  equal(pkgDef.onBegin, 0, 'The default value is 0.');
+  pkgDef.onBegin = function () {
+    val++;
+  };
+  tank.go(pkgInst.nodes.length - 1);
+  equal(val, 1, 'As a function, .onBegin is called when a tank begins navigating a tree.');
+  pkgDef.onBegin = function () {
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 1, 'One argument is passed.');
+    equal(arguments[0], 'begin', 'The argument is the "begin" string, the event name.');
+    return false;
+  };
+  tank.go(0);
 });
 
-test('.stop()', function () {
+test('.onTraverse', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass()),
-    tank = pkgInst.tank;
-  equal(typeof tank.stop, 'function', 'Has the .stop() method.');
-  equal(typeof tank.stop(), 'number', 'Returns a number.');
-});
-
-test('.post', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass()),
-    tank = pkgInst.tank;
-  equal(typeof tank.post, 'function', 'Has the .post() method.');
-});
-
-test('.id', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    pkgDef2 = Klass.pkg('b'),
-    pkgInst = pkgDef(new Klass()),
-    tank = pkgInst.tank;
-  equal(typeof tank.id, 'number', 'Has the .id member which is a number.');
-  equal(tank.id, 0, 'The .id value for the first Panzer instance is 0.');
-  ok(
-    [1,2,3].every(function (id) {
-      return pkgDef(new Klass()).tank.id === id;
-    }),
-    'The .id member increments by one, after each Package instance.'
-  );
-});
-
-test('.currentIndex', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass()),
-    tank = pkgInst.tank;
-  equal(typeof tank.currentIndex, 'number', 'Has a .currentIndex member which is a number.');
-  equal(tank.currentIndex, 0, 'The value is 0, by default.');
+    pkgInst = pkgDef(new Klass([[1,1],1,1])),
+    tank = pkgInst.tank,
+    evtTypes = [2, 4, 1, 3, 1, 0],
+    val = 0;
+  equal(pkgDef.onTraverse, 0, 'The default value is 0.');
+  pkgDef.onTraverse = function () {
+    val++;
+  };
   tank.go(1);
-  equal(tank.currentIndex, 1, 'Reflects the index of the pointer node in a tree.');
+  equal(val, 2, 'As a function, .onTraverse is called when a tank traverses the node of the tree.');
+  pkgDef.onTraverse = function () {
+    scope = this;
+    args = arguments;
+    return false;
+  };
+  tank.go(pkgInst.nodes.length - 1);
+  ok(scope === pkgInst, 'The execution scope is the package-instance.');
+  equal(args.length, 2, 'Two arguments are passed.');
+  equal(args[0], 'traverse', 'The first argument is the "traverse" string, the event name.');
+  equal(typeof args[1], 'number', 'The second argument is the traversal type, a number.');
+  val = 1;
+  pkgDef.onTraverse = function (evtName, typeIdx) {
+    val &= typeIdx === evtTypes.shift();
+  };
+  tank.go(4);
+  equal(val, 1, 'During navigation, the traversal types 0, 1, 2, 3, and 4 occur in the expected order.');
 });
 
-test('.targetIndex', function () {
+test('.onEnd', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass()),
-    tank = pkgInst.tank;
-  equal(typeof tank.targetIndex, 'number', 'Has a .targetIndex member which is a number.');
-  equal(tank.targetIndex, -1, 'The value is -1, by default.');
+    pkgInst = pkgDef(new Klass([1,1,1])),
+    tank = pkgInst.tank,
+    val = 0;
+  equal(pkgDef.onEnd, 0, 'The default value is 0.');
+  pkgDef.onEnd = function () {
+    val++;
+  };
+  tank.go(pkgInst.nodes.length - 1);
+  equal(val, 1, 'As a function, .onEnd is called when a tank ends navigating a tree.');
+  pkgDef.onEnd = function () {
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 1, 'One argument is passed.');
+    equal(arguments[0], 'end', 'The argument is the "end" string, the event name.');
+    return false;
+  };
+  tank.go(0);
 });
-
