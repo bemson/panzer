@@ -1,0 +1,25 @@
+{
+  "name": "Panzer"
+  , "version": "0.1.0"
+  , "description": "A JavaScript platform for compiling, prototyping, traversing, and responding to the navigation of tree structures."
+  , "dependencies" : {
+    "genData": "1.2.x"
+  }
+  , "keywords": [
+    "tree"
+    , "traversal"
+    , "platform"
+  ]
+  , "author": "Bemi Faison <bemson@gmail.com> (https://github.com/bemson)"
+  , "repository": {
+    "type": "git"
+    , "url": "http://github.com/bemson/Panzer.git"
+  }
+  , "licenses": [
+    {
+      "type" : "MIT"
+      , "url" : "https://github.com/bemson/Panzer/raw/master/LICENSE"
+    }
+  ]
+  , "main": "src/panzer.js"
+}
