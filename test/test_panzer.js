@@ -90,7 +90,7 @@ test('Package', function () {
 
 module('Package');
 
-test('Function/Class', function () {
+test('Definition/Class', function () {
   var
     Klass = Panzer.create(),
     instBeforePkg = new Klass(),
@@ -109,7 +109,7 @@ test('Function/Class', function () {
   );
 });
 
-test('Instance', function () {
+test('Instances', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -126,6 +126,27 @@ test('Instance', function () {
   ok(pkgInst.hasOwnProperty('tank'), 'There is a non-inherited .tank member.');
   equal(typeof pkgInst.tank, 'object', 'The .tank member is an object.');
   ok(pkgInst.tank === pkgDef2(proxy).tank, 'Package-instances share a single .tank object.');
+});
+
+test('Nodes', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    proxy = new Klass(['any','js','object']),
+    pkgInst = pkgDef(proxy),
+    node = pkgInst.nodes[0];
+  equal(pkgDef(new Klass()).nodes.length, 2, 'Even when a Panzer instance tree is not an object, two nodes exist.');
+  'name|value|index|depth|attributes|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex'.split('|')
+    .forEach(function (mbr) {
+      ok(node.hasOwnProperty(mbr), 'Has a "' + mbr + '" member.');
+    });
+  '_tree|_root'.split('|')
+    .forEach(function (name, idx) {
+      equal(pkgInst.nodes[idx].name, name, 'By default, the name member of the node at index ' + idx + ' is "' + name + '".');
+    });
+  strictEqual(node.previousIndex, undefined, 'Unset .xxxIndex member properties are undefined.');
+  ok(pkgInst.nodes[1].attributes === pkgDef2(proxy).nodes[1].attributes, 'Nodes at the same index, from different package-instances, reference the same .attributes object.');
 });
 
 module('Package-Instance.tank');
@@ -203,7 +224,7 @@ test('.currentIndex', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass([1,1,1])),
+    pkgInst = pkgDef(new Klass(['any','js','object'])),
     tank = pkgInst.tank;
   equal(typeof tank.currentIndex, 'number', 'Has a .currentIndex member which is a number.');
   equal(tank.currentIndex, 0, 'The value is 0, by default.');
@@ -429,7 +450,7 @@ test('.onBegin', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass([1,1,1])),
+    pkgInst = pkgDef(new Klass(['any','js','object'])),
     tank = pkgInst.tank,
     val = 0;
   equal(pkgDef.onBegin, 0, 'The default value is 0.');
@@ -451,7 +472,7 @@ test('.onTraverse', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass([[1,1],1,1])),
+    pkgInst = pkgDef(new Klass([['child','nodes'],'sibling','nodes'])),
     tank = pkgInst.tank,
     evtTypes = [2, 4, 1, 3, 1, 0],
     val = 0;
@@ -483,7 +504,7 @@ test('.onEnd', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
-    pkgInst = pkgDef(new Klass([1,1,1])),
+    pkgInst = pkgDef(new Klass(['any','js','object'])),
     tank = pkgInst.tank,
     val = 0;
   equal(pkgDef.onEnd, 0, 'The default value is 0.');
