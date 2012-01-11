@@ -468,7 +468,8 @@ test('.onTraverse', function () {
     pkgInst = pkgDef(new Klass([['child','nodes'],'sibling','nodes'])),
     tank = pkgInst.tank,
     evtTypes = [2, 4, 1, 3, 1, 0],
-    val = 0;
+    val = 0,
+    scope, args;
   equal(pkgDef.onTraverse, 0, 'The default value is 0.');
   pkgDef.onTraverse = function () {
     val++;
@@ -626,7 +627,7 @@ test('Postbacks', function () {
     val = 0,
     lastIndex = pkgInst.nodes.length - 1,
     tgtIndex = 1,
-    postId;
+    postId, normalTraversalCount;
   function inc() {
     val++;
   }
