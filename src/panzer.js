@@ -19,7 +19,7 @@
     environment = (inCommonJsEnv) ? exports : window,
     // load or alias genData, based on the execution environment
     genData = (inCommonJsEnv ? require('genData') : window).genData,
-    // the current panzer platform - used by shared closures
+    // the current panzer platform - used by shared closures calling testNodeKey
     PZR,
     // the cached result of ({}).toString
     toStringResult = ({}).toString(),
@@ -184,7 +184,7 @@
         a = pkgDef.def.attributeKey,
         // shorthand for invalid key member
         n = pkgDef.def.invalidKey;
-      // set cache for node parsing
+      // cache node key testers for faster parsing
       pkgDef.c = {
         // capture when the attribute test is a function
         af: typeof a === 'function' ? a : 0,
@@ -199,6 +199,8 @@
 
     // start generating the initial tree
     tree.nodes = genNodes(rawtree);
+    // clear PZR reference (for better garbage collection)
+    PZR = 0;
     // set parent and childIndex of the tree node
     tree.nodes[0].parentIndex = tree.nodes[0].childIndex = 0;
     // prepend the tree node
