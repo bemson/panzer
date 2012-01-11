@@ -517,7 +517,7 @@ test('.onEnd', function () {
 
 module('Navigation');
 
-test('Event Callback Sequence', function () {
+test('Event Callbacks', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -535,11 +535,43 @@ test('Event Callback Sequence', function () {
     this.tank.stop();
   };
   equal(tank.go(0), 0, 'No nodes are traversed when navigation is stopped from the "begin" callback.');
-  equal(vals.length, 1, 'The "end" callback executes regardless of whether or where navigation is stopped.');
+  equal(vals.length, 1, 'The "end" event fires regardless of whether navigation is stopped.');
+  strictEqual(tank.stop(), false, 'tank.stop() returns false when the Panzer instance is idle.');
+  pkgDef.onBegin = function () {
+    strictEqual(this.tank.stop(), true, 'tank.stop() returns true from an event callback.');
+  };
+  tank.go(0);
 });
 
 test('Traversal', function () {
-  
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([['child','nodes'],'sibling','nodes'])),
+    tank = pkgInst.tank,
+    evtsTally = [],
+    evtMap;
+  pkgDef.onBegin = function () {
+    evtMap = [];
+    evtsTally.push(evtMap);
+  };
+  pkgDef.onTraverse = function (name, type) {
+    evtMap.push(type + "");
+  };
+  tank.go(0);
+  tank.go(pkgInst.nodes.length - 1);
+  tank.go(4);
+  tank.go(1);
+  deepEqual(
+    evtsTally,
+    [
+      '0'.split(''),
+      '13310'.split(''),
+      '241310'.split(''),
+      '2420'.split('')
+    ],
+    'The tank traverses a tree as expected.'
+  );
 });
 
 test('Routing', function () {
@@ -550,17 +582,39 @@ test('Routing', function () {
     tgtIndex = pkgInst.nodes.length - 1,
     tank = pkgInst.tank,
     initialIndex = tank.currentIndex,
-    finalIndex = 1;
+    finalIndex = 1,
+    val = 0;
   pkgDef.onBegin = function () {
     this.tank.stop();
   };
   tank.go(tgtIndex);
-  equal(tank.currentIndex, initialIndex, 'The Panzer instance was redirected from an event callback.');
+  equal(tank.currentIndex, initialIndex, 'Navigation was aborted from an event callback.');
   pkgDef.onBegin = function () {
     this.tank.go(finalIndex);
   };
   tank.go(tgtIndex);
-  equal(tank.currentIndex, finalIndex, 'Navigation was stopped from an event callback.');
+  ok(tank.currentIndex !== tgtIndex && tank.currentIndex === finalIndex, 'The originally targeted node was not reached due to routing navigation from an event callback.');
+  pkgDef.onBegin = 0;
+  pkgDef.onTraverse = function (name, type) {
+    switch (type) {
+      case 2 : // out
+        tank.go(1);
+        val++;
+        break;
+      case 3 : // over
+        tank.go(1);
+        val++;
+        break;
+      case 4: // bover
+        tank.go(3);
+        val++;
+    }
+  };
+  tank.go(3);
+  equal(val, 1, 'Redirecting in the opposite direction, during an "over" event, does not trigger a "bover" event.');
+  tank.go(2);
+  tank.go(3);
+  equal(val, 2, 'Redirecting in the opposite direction, during a "bover" event, does not trigger an "over" event.');
 });
 
 test('Postbacks', function () {
@@ -612,40 +666,3 @@ test('Postbacks', function () {
   };
   ok(normalTraversalCount > tank.go(lastIndex), 'The traversal count is compromised when tank.go() directs the same Panzer instance, via a postback.');
  });
-
-module('Frameworks');
-
-test('Navigation', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    proxy = new Klass(['any','js','object']);
-  pkgDef.proxy.navigateToNodeIndex = function (idx) {
-    return !!pkgDef(this).tank.go(idx);
-  };
-  equal(proxy.navigateToNodeIndex(2), true, 'Proxy methods can access the tank from their corresponding package-instance.');
-});
-
-test('Data', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    tree = ['any','js','object'],
-    proxy = new Klass(tree),
-    vals = [];
-  pkgDef.onTraverse = function (evtName, evtType) {
-    var
-      curNode = this.nodes[this.tank.currentIndex];
-    if (evtType === 0 || evtType === 3) {
-      vals.push(curNode.value);
-    }
-  };
-  pkgDef.proxy.gotoLastNode = function () {
-    var
-      pkgInst = pkgDef(this),
-      tank = pkgInst.tank;
-    tank.go(pkgInst.nodes.length - 1);
-  };
-  proxy.gotoLastNode();
-  deepEqual(vals, tree, 'Node data is accessible during event callbacks.');
-});
