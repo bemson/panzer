@@ -142,7 +142,7 @@ test('Nodes', function () {
   ok(pkgInst.nodes[1].attributes === pkgDef2(proxy).nodes[1].attributes, 'Nodes at the same index, from different package-instances, reference the same .attributes object.');
 });
 
-module('Package-Instance.tank');
+module('Tank API');
 
 test('.go()', function () {
   var
@@ -486,8 +486,8 @@ test('.onTraverse', function () {
   equal(args[0], 'traverse', 'The first argument is the "traverse" string, the event name.');
   equal(typeof args[1], 'number', 'The second argument is the traversal type, a number.');
   val = 1;
-  pkgDef.onTraverse = function (evtName, typeIdx) {
-    val &= typeIdx === evtTypes.shift();
+  pkgDef.onTraverse = function (evtName, evtType) {
+    val &= evtType === evtTypes.shift();
   };
   tank.go(4);
   equal(val, 1, 'During navigation, the traversal types 0, 1, 2, 3, and 4 occur in the expected order.');
@@ -513,4 +513,139 @@ test('.onEnd', function () {
     return false;
   };
   tank.go(0);
+});
+
+module('Navigation');
+
+test('Event Callback Sequence', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    vals = [],
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank;
+  pkgDef.onBegin = pkgDef.onTraverse = pkgDef.onEnd = function (evt) {
+    vals.push(evt);
+  };
+  tank.go(0);
+  deepEqual(vals, 'begin|traverse|end'.split('|'), 'Traversal events occur in the expected sequence.');
+  vals = [];
+  pkgDef.onTraverse = 0;
+  pkgDef.onBegin = function () {
+    this.tank.stop();
+  };
+  equal(tank.go(0), 0, 'No nodes are traversed when navigation is stopped from the "begin" callback.');
+  equal(vals.length, 1, 'The "end" callback executes regardless of whether or where navigation is stopped.');
+});
+
+test('Traversal', function () {
+  
+});
+
+test('Routing', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass(['any','js','object'])),
+    tgtIndex = pkgInst.nodes.length - 1,
+    tank = pkgInst.tank,
+    initialIndex = tank.currentIndex,
+    finalIndex = 1;
+  pkgDef.onBegin = function () {
+    this.tank.stop();
+  };
+  tank.go(tgtIndex);
+  equal(tank.currentIndex, initialIndex, 'The Panzer instance was redirected from an event callback.');
+  pkgDef.onBegin = function () {
+    this.tank.go(finalIndex);
+  };
+  tank.go(tgtIndex);
+  equal(tank.currentIndex, finalIndex, 'Navigation was stopped from an event callback.');
+});
+
+test('Postbacks', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass(['any','js','object'])),
+    tank = pkgInst.tank,
+    val = 0,
+    lastIndex = pkgInst.nodes.length - 1,
+    tgtIndex = 1,
+    postId;
+  function inc() {
+    val++;
+  }
+  tank.post(inc);
+  tank.go(tgtIndex);
+  equal(val, 0, 'Postbacks set outside a callback (an idle Panzer instance) are ignored.');
+  pkgDef.onBegin = function () {
+    tank.post(inc);
+  };
+  tank.go(tgtIndex);
+  equal(val, 1, 'Postbacks set from a callback are executed.');
+  val = 0;
+  pkgDef.onBegin = function () {
+    postId = tank.post(inc);
+  };
+  pkgDef.onEnd = function () {
+    tank.post(postId);
+  };
+  tank.go(tgtIndex);
+  equal(val, 0, 'Postbacks set in one event callback can be removed by another event callback.');
+  pkgDef.onBegin = 0;
+  pkgDef.onEnd = function () {
+    if (!val++) {
+      tank.go(tgtIndex);
+    }
+  };
+  normalTraversalCount = tank.go(lastIndex);
+  val = 0;
+  pkgDef.onEnd = function () {
+    if (!val++) {
+      this.tank.post(
+        function () {
+          tank.go(tgtIndex);
+        }
+      );
+    }
+  };
+  ok(normalTraversalCount > tank.go(lastIndex), 'The traversal count is compromised when tank.go() directs the same Panzer instance, via a postback.');
+ });
+
+module('Frameworks');
+
+test('Navigation', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    proxy = new Klass(['any','js','object']);
+  pkgDef.proxy.navigateToNodeIndex = function (idx) {
+    return !!pkgDef(this).tank.go(idx);
+  };
+  equal(proxy.navigateToNodeIndex(2), true, 'Proxy methods can access the tank from their corresponding package-instance.');
+});
+
+test('Data', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    tree = ['any','js','object'],
+    proxy = new Klass(tree),
+    vals = [];
+  pkgDef.onTraverse = function (evtName, evtType) {
+    var
+      curNode = this.nodes[this.tank.currentIndex];
+    if (evtType === 0 || evtType === 3) {
+      vals.push(curNode.value);
+    }
+  };
+  pkgDef.proxy.gotoLastNode = function () {
+    var
+      pkgInst = pkgDef(this),
+      tank = pkgInst.tank;
+    tank.go(pkgInst.nodes.length - 1);
+  };
+  proxy.gotoLastNode();
+  deepEqual(vals, tree, 'Node data is accessible during event callbacks.');
 });
