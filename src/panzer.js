@@ -15,7 +15,7 @@
     return;
   }
   var
-    // set the environent to expose Panzer to
+    // set the environment to publish Panzer
     environment = (inCommonJsEnv) ? exports : window,
     // load or alias genData, based on the execution environment
     genData = (inCommonJsEnv ? require('genData') : window).genData,
@@ -51,9 +51,9 @@
           // alias node
           node = this,
           // flag whether this item is a invalid key
-          isInvalidKey = testNodeKey('n', name, value, shared.f, shared.r),
+          isInvalidKey = testNodeKey('n', name, value),
           // flag whether this item is an attribute key
-          isAttributeKey = testNodeKey('a', name, value, shared.f, shared.r);
+          isAttributeKey = !isInvalidKey && testNodeKey('a', name, value);
         // if this node's key is invalid or flagged as an attribute (by one any of the packages)...
         if (isInvalidKey || isAttributeKey) {
           // exclude from dataset
@@ -67,7 +67,7 @@
           }
         } else { // otherwise, when this key is not invalid or an attribute...
           // set default property values to undefined (presence reduces prototype property lookups)
-          node.inContext = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
+          node.ctx = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
           // capture index of this item once added
           node.index = dataset.length + 1;
           // capture depth
@@ -113,8 +113,8 @@
           flags.scan = 0;
           // with each node property available...
           for (var mbr in value) {
-            // if this member is not inherited or inContext...
-            if (value.hasOwnProperty(mbr) && mbr !== 'inContext') {
+            // if this member is not inherited or ctx...
+            if (value.hasOwnProperty(mbr) && mbr !== 'ctx') {
               // copy key and value to new data object
               this[mbr] = value[mbr];
             }
@@ -169,7 +169,7 @@
     tree.panzer = PZR = panzer;
     // init proxy shared objects collection
     tree.y = [
-      // [0] the .pkgs member
+      // [0] the shared .pkgs member
       {},
       // [1] the fake toString method
       function (platform, pkgName) {
@@ -218,7 +218,7 @@
       // set path
       path = '..//';
       // flag that we are already "on" this first node
-      inContext = 1;
+      ctx = 1;
     }
     // reference the first and last child index
     tree.nodes[0].firstChildIndex = tree.nodes[0].lastChildIndex = 1;
@@ -290,16 +290,14 @@
           // the package name (for lookups)
           name: pkgDef.name,
           // instantiate package instance from the definition function
-          inst: new pkgDef.def(),
-          // init package proxy
-          proxy: new pkgProxy()
+          inst: new pkgDef.def()
         };
       // init proxy definition for this package
       function pkgProxy() {}
       // mirror the definition's proxy prototype
-      pkgProxy.prototype = pkgDef.proxy;
-      // capture the package-instance proxy in the shared proxy object
-      tree.y[0][pkgDef.name] = pkgEntry.proxy;
+      pkgProxy.prototype = pkgDef.proxy.prototype;
+      // init and capture the package-instance-proxy in the shared .pkgs object
+      tree.y[0][pkgDef.name] = pkgEntry.proxy = new pkgProxy();
       // clone nodes for this package instance, using this package's node prototype
       pkgEntry.inst.nodes = genCloneNodes(
         // nodes to copy
@@ -309,6 +307,8 @@
         // set the prototype of the returned data objects to this package-definition's node constructor
         pkgDef.node
       );
+      // expose the tree api to the package instance
+      pkgEntry.inst.tank = tree.tank;
       // if this definition has an .init function...
       if (typeof pkgDef.def.init === 'function') {
         // initialize the package instance, passing in the (extra) configuration object
@@ -323,11 +323,11 @@
       pkgEntry.proxy.toString = tree.y[1];
       // add shared proxy object
       pkgEntry.proxy.pkgs = tree.y[0];
-      // expose the tree api to the package instance
-      pkgEntry.inst.tank = tree.tank;
-      // expose last package-proxy to all package instances
+      // expose last package-proxy to all proxy instances
       pkgEntry.inst.proxy = pkgs[pkgs.length - 1].proxy;
     });
+    // flag that this instance is ready
+    this.ret = 1;
   }
   Tree.prototype = {
     // head towards the current target
@@ -375,7 +375,7 @@
             // if going forward on the _tree or tree node, or the target path contains the current path...
             if ((dir > 0 && curNode.index < 2) || !tree.target.path.indexOf(curNode.path)) {
               // if already in context...
-              if (curNode.inContext) {
+              if (curNode.ctx) {
                 // flag that we're switching nodes
                 nextIsEvent = 0;
                 // target the first child
@@ -386,17 +386,17 @@
                 // set to in event
                 nextInt = 1;
                 // flag that we're in the current node
-                curNode.inContext = 1;
+                curNode.ctx = 1;
               }
             } else { // otherwise, if the target path is not in the current path...
               // if in the context of the current node...
-              if (curNode.inContext) {
+              if (curNode.ctx) {
                 // flag that we're doing an event
                 nextIsEvent = 1;
                 // set to out event
                 nextInt = 2;
                 // flag that we're out of the current node
-                curNode.inContext = 0;
+                curNode.ctx = 0;
               } else { // otherwise, when out of this node...
                 // if the current node's parent is an ancestor of the target node...
                 if (tree.target.path.indexOf(nodes[curNode.parentIndex].path)) {
@@ -421,16 +421,16 @@
             // flag that we're doing an event
             nextIsEvent = 1;
             // set event to on or in, based on the current context
-            nextInt = curNode.inContext ? 0 : 1;
+            nextInt = curNode.ctx ? 0 : 1;
             // if already in context...
-            if (curNode.inContext) {
+            if (curNode.ctx) {
               // clear internal target
               tree.target = 0;
               // clear tank target (set to negative one)
               tank.targetIndex = -1;
             }
             // set context to in
-            curNode.inContext = 1;
+            curNode.ctx = 1;
           }
           // if doing an event...
           if (nextIsEvent) {
@@ -473,6 +473,11 @@
       var
         // alias for closures
         panzer = this.panzer;
+      // if this instance is not ready...
+      if (!this.ret) {
+        // exit the function
+        return;
+      }
       // use args or array - assumes args is an array
       args = args || [];
       // prepend lowercasse form of the event name to arguments, so callbacks can identify the event
