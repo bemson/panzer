@@ -1,7 +1,7 @@
 {
   "name": "Panzer"
   , "version": "0.1.0"
-  , "description": "A JavaScript platform for compiling, prototyping, traversing, and responding to the navigation of tree structures."
+  , "description": "A comprehensive node-tree solution, for smart data."
   , "dependencies" : {
     "genData": "1.2.x"
   }
