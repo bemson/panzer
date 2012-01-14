@@ -2,42 +2,105 @@
 by Bemi Faison
 
 version 0.1.0
-(1/6/12)
+(1/13/12)
+
+A comprehensive node-tree solution, for smart data.\*
 
 ## DESCRIPTION
 
-Panzer is a JavaScript platform that defines and navigates node-trees.
+Panzer is a JavaScript class factory that implements tree parsing, traversal and monitoring. Panzer separates node behavior, structure, and navigation concerns, so you can design classes that do just what you need.
 
-Panzer is a JavaScript platform for static tree classes and navigation events.
+The procedural consumption of "structure" allows data to inform your code's execution, for easier coding. As well, Panzer provides nodal meta-data, like parent-child relationships, depth, child order, etc. - which can be used to solve various problem domains.
 
-Panzer is a JavaScript platform for node-tree classes and navigation events.
+The purpose and function of your Panzer is given by it's packages - modules of code that access and extend classes. The package architecture allows several treatments of an instance, with fewer resource collisions and greater interoperability than traditional plug-in schemes.
 
-The purpose and function of your Panzer is given by modules of code, called packages.
+__\*__ Read _[The Cathedral and the Bazaar](http://www.redhat.com/support/wpapers/community/cathedral/whitepaper_cathedral-5.html)_, to understand why **"Smart data structures and dumb code works a lot better than the other way around."**
 
-The purpose and function
+## INSTALL
 
+### Web Browsers
 
-Panzer is a JavaScript platform for navigation events 
+Use a `<SCRIPT>` tag to reference panzer-min.js, as you would any external JavaScript file. The "Panzer" namespace will be added to the global scope.
 
-Panzer provides navigation events for custom node trees.
+```html
+  <script type="text/javascript" src="somepath/panzer-min.js"></script>
+  <script type="text/javascript">
+    // ... Panzer dependent code ...
+  </script>
+```
+### Node.js
 
-Panzer lets you define node tree classes, and respond to navigation events.
+Use [npm](http://npmjs.org) to install the "Panzer" module and it's dependencies.
 
-Panzer lets you interpret and act on tree structure and navigation.
+```bash
+  npm install Panzer
+```
 
-, using a unique architecture for extension.
+Then, in Node.js (or a CommonJS environment), require the module and reference the exported "Panzer" object.
 
- compilation and navigation.
+```js
+  var myPanzerReference = require('Panzer').Panzer;
 
-structurestake action on and interpret tree structures, using a .
+  // ... code dependent on "myPanzerReference" ...
+```
 
- Panzer is a JavaScript platform for compiling, prototyping, traversing, and responding to the navigation of tree structures. 
+### Dependencies
 
-The purpose and function of your Panzer is given by modules of code, called packages.
+Panzer requires [genData v1.2](https://github.com/bemson/genData). (The minified file includes this dependency.)
 
-Panzer generates constructor functions, called "tanks", that represent the many parts of a tree traversal system. These components are augmented and extended with modules of code, called packages.
+## USAGE
 
-Though generic enough, the Panzer library was originally designed to support [Flow](https://github.com/bemson/Flow), a robust state-machine framework.
+First, create a Panzer class.
+
+```js
+var BasicTree = Panzer.create();
+```
+
+In order to access and extend Panzer's functionality, we need to define a package. (Otherwise, our instances won't do much.) Let's register a new package by name.
+
+```js
+var myPkgDef = BasicTree.pkg('my first package');
+```
+
+The returned value is the _package-definition_, a function with special members that hook into our class. Many hooks are available, but we'll prototype an instance method now.
+
+```js
+myPkgDef.proxy.onward = function () {
+    var
+        // get the corresponding package-instance
+        tree = myPkgDef(this),
+        // alias the tank that controls our tree's "pointer"
+        tank = tree.tank,
+        // reference the current node
+        currentNode = tree.nodes[tank.currentIndex],
+        // reference a sibling or child node, if available
+        nextNode = tree.nodes[currentNode.nextIndex || currentNode.firstChildIndex];
+    // if there is a nextNode and we've successfully navigated to it...
+    if (nextNode && tank.go(nextNode.index)) {
+        // return the value of (what is now) the current node
+        return nextNode.value;
+    }
+    // (otherwise) flag that no node is next
+    return false;
+};
+```
+
+Though simple enough, there is a lot going on in our method. Nevertheless, we can now "walk" the left-branch of any data structure.
+
+```js
+var
+    myTree = new BasicTree({hello: 'world'}),
+    nodeValue, lefties = [];
+while (nodeValue = myTree.onward()) {
+    lefties.push(nodeValue);
+}
+//
+// lefties[0] -> {hello: 'world'}
+// lefties[1] -> 'world'
+//
+```
+
+Understanding the package api is key to getting the most from your class. However, in lieu of full documentation, please see the test suite for greater insight. Thanks for your patience!
 
 ## FILES
 
@@ -45,62 +108,12 @@ Though generic enough, the Panzer library was originally designed to support [Fl
 * test/ - [Qunit](http://docs.jquery.com/QUnit) tests of minified source files
 * README.md - This readme file
 * LICENSE - The legal terms and conditions under which this software may be used
-* panzer-min.js - The Panzer platform, including dependencies, minified for browser environments
+* panzer-min.js - The Panzer platform, including dependencies, minified and geared for browser environments
 
 Source files minified with [UglifyJS](http://marijnhaverbeke.nl/uglifyjs)
 
-## Dependencies
-
-Panzer requires [genData v1.2](https://github.com/bemson/genData).
-
-## INSTALL
-
-Within web browsers, reference the panzer-min.js file, as you would any external JavaScript library file.
-
-```html
-  <script type="text/javascript" src="somepath/panzer-min.js"></script>
-  <script type="text/javascript">
-    // Your code that uses Panzer...
-  </script>
-```
-
-For Node, install the panzer module via npm.
-
-```bash
-  npm install Panzer
-```
-
-Then, for commonJS environments (like Node), require the Panzer module, and reference the exported Panzer namespace.
-
-```js
-  var Panzer = require('Panzer').Panzer;
-
-  // Your code that uses Panzer...
-```
-
-## USAGE
-
-First create a "tank", using `Panzer.create()`.
-
-```js
-	var myTank = Panzer.create();
-```
-Tanks like `myTank` are constructor functions, which accept two optional parameters. Without customization, however, a tank does nothing useful. Customize your tank, by registering a package, using `<tank>.pkg()`.
-
-```js
-	var myPkgDef = myTank.pkg('myPkgName');
-```
-
-The return value is a package-definition function, representing the "myPkgName" as package. Read the wiki, to learn how each member property impacts the purpose and operation of the tank.
-
-Once customized, simply create a new instance of your tank!
-
-```js
-	var inst = new myTank();
-```
-
 ## LICENSE
 
-Panzer is available under the terms of the [MIT-License](http://en.wikipedia.org/wiki/MIT_License#License_terms).
+Panzer is available under the terms of the [MIT-License](http://www.opensource.org/licenses/mit-license.php).
 
-Copyright 2011, Bemi Faison
+Copyright 2012, Bemi Faison
