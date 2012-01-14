@@ -35,7 +35,7 @@ test('Instance', function () {
       .every(function (arg) {
         return inst.toString(arg) === ({}).toString();
       }),
-    'The .toString() method returns the same result as "({}).toString()", despite any argument.'
+    'The .toString() method always returns the result of "({}).toString()".'
   );
   ok(inst.hasOwnProperty('pkgs'), '"pkgs" is a non-inherited member.');
   equal(typeof inst.pkgs, 'object', '.pkgs is an object.');
@@ -111,11 +111,10 @@ test('Instances', function () {
     pkgInst = pkgDef(proxy);
   ok(pkgInst.hasOwnProperty('nodes'), 'There is a non-inherited .nodes member.');
   ok(pkgInst.nodes instanceof Array, 'The .nodes member is an array.');
-  ok(pkgInst.nodes !== pkgDef2(proxy).nodes, 'Each package-instance has their own .nodes collection.');
+  ok(pkgInst.nodes !== pkgDef2(proxy).nodes, 'Each package-instance has a separate .nodes collection.');
   equal(pkgInst.nodes.length, 2, 'Two nodes are added to those parsed from the tree parameter.');
   ok(pkgInst.hasOwnProperty('proxy'), 'There is a non-inherited .proxy member.');
-  equal(typeof pkgInst.proxy, 'object', 'The .proxy member is an object.');
-  ok(pkgInst.proxy === pkgDef2(proxy).proxy, 'The .proxy object is shared between package-instances.');
+  ok(pkgInst.proxy === pkgDef2(proxy).proxy, 'The .proxy object is shared amongst package-instances.');
   ok(pkgInst.hasOwnProperty('tank'), 'There is a non-inherited .tank member.');
   equal(typeof pkgInst.tank, 'object', 'The .tank member is an object.');
   ok(pkgInst.tank === pkgDef2(proxy).tank, 'Package-instances share a single .tank object.');
@@ -151,16 +150,11 @@ test('.go()', function () {
     pkgInst = pkgDef(new Klass({a:1, b:2})),
     tank = pkgInst.tank;
   equal(typeof tank.go, 'function', 'Has the .go() method.');
-  equal(tank.go(tank.currentIndex), 1, 'Returns 1 when targeting the current index.');
-  ok(tank.go(1) > 0, 'Returns a positive integer when given a valid node index.');
-  equal(tank.go(), 0, 'Returns zero when called with no arguments.');
-  ok(
-    ['', undefined, null, {}, function () {}, -1, pkgInst.nodes.length]
-      .every(function (arg) {
-        return tank.go(arg) === 0;
-      }),
-    'Returns 0 when passed a target index outside the range of available nodes.'
-  );
+  equal(typeof tank.go(), 'number', 'Returns the number of traversals that occur during navigation.');
+  pkgDef.init = function () {
+    this.tank.go(1);
+  };
+  equal(pkgDef(new Klass()).tank.currentIndex, 1, 'tank.go() can called during package-instance initializing.');
 });
 
 test('.stop()', function () {
@@ -227,7 +221,7 @@ test('.currentIndex', function () {
         tank.go(idx);
         return tank.currentIndex === idx;
       }),
-    'Reflects the index of the pointer-node.'
+    'Reflects the index of the last node the tree-pointer traversed.'
   );
 });
 
@@ -263,14 +257,22 @@ test('.proxy', function () {
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
     pkgMthdName = 'foo',
-    inst = new Klass();
-  ok(pkgDef.proxy.isPrototypeOf(inst), 'A Panzer instance prototype includes the .proxy member.');
+    proxy = new Klass(),
+    pkgInst = pkgDef(proxy);
+  ok(pkgDef.proxy.isPrototypeOf(proxy), 'The Panzer instance prototype uses the .proxy member of package-definitions.');
+  ok(
+    'pkgs|toString|prototype'.split('|')
+      .every(function (prop) {
+        return pkgInst.proxy[prop] === proxy[prop];
+      }),
+    'The .proxy object shares the same members and prototype as the Panzer-instance.'
+  );
   pkgDef.proxy[pkgMthdName] = function () {
-    ok(this === inst, 'The scope of .proxy methods is the Panzer instance.');
+    ok(this === proxy, 'The scope of .proxy methods is the Panzer instance.');
     ok(this.hasOwnProperty('pkgs'), 'The .pkgs member is available to methods from the .proxy member.');
     ok(this.hasOwnProperty('toString'), 'The .toString member is available to methods from the .proxy member.');
   };
-  inst[pkgMthdName]();
+  proxy[pkgMthdName]();
   ok(Klass.pkg('b').proxy[pkgMthdName], 'Each package extends upon the .proxy prototype chain of the last package.');
 });
 
@@ -290,9 +292,9 @@ test('.init', function () {
   pkgInst = pkgDef(new Klass());
   ok(initScope === pkgInst, 'The scope of the .init function is the package-instance.');
   pkgDef.init = function () {
+    ok(this.hasOwnProperty('tank'), 'The .tank member is available from the .init function.');
     ok(this.hasOwnProperty('nodes'), 'The .nodes collection is available from the .init function.');
     ok(!this.hasOwnProperty('proxy'), 'The .proxy member is not available from the .init function.');
-    ok(!this.hasOwnProperty('tank'), 'The .tank member is not available from the .init function.');
   };
   pkgInst = pkgDef(new Klass());
   ok(
@@ -302,12 +304,12 @@ test('.init', function () {
       }),
     'The .proxy and .tank members are added to a package-instance, after the .init function executes.'
   );
-  pkgDef.init = function () {
-    this[expandoProp] = expandoVal;
-  };
-  pkgInst = pkgDef(new Klass());
-  equal(pkgInst[expandoProp], expandoVal, 'Members added to the scope of an .init function are present in the package-instance.');
-  ok(!Klass.pkg('b')(new Klass()).hasOwnProperty('expandoProp'), 'Members added via the .init function, are not added to the instances of other packages.');
+  // pkgDef.init = function () {
+  //   this[expandoProp] = expandoVal;
+  // };
+  // pkgInst = pkgDef(new Klass());
+  // equal(pkgInst[expandoProp], expandoVal, 'Members added to the scope of an .init function are present in the package-instance.');
+  // ok(!Klass.pkg('b')(new Klass()).hasOwnProperty('expandoProp'), 'Members added via the .init function, are not added to the instances of other packages.');
   pkgDef.node[nodeMbrName] = expandoVal;
   pkgDef.init = function () {
     strictEqual(this.nodes[0][nodeMbrName], expandoVal, 'Members of the .node object are available to node instances within the .init function.');
@@ -516,66 +518,211 @@ test('.onEnd', function () {
   tank.go(0);
 });
 
-module('Navigation');
+module('Structure');
 
-test('Event Callbacks', function () {
+test('Key Parsing', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef1 = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    tree = {
+      an: 'object',
+      to: {
+        parse: 'in to',
+        nodes: "n'",
+        attri: '-butes'
+      },
+      based: 'on',
+      "it's": 'keys',
+      or: 'values'
+    },
+    val = '',
+    proxy;
+  pkgDef1.attributeKey = pkgDef2.invalidKey = /./;
+  equal(pkgDef1(new Klass(tree)).nodes.length, 2, 'Keys matching an .invalidKey test, can not become attributes.');
+  pkgDef1.invalidKey = pkgDef1.attributeKey = 0;
+  pkgDef2.invalidKey = function () {
+    val += 'a';
+    return false;
+  };
+  pkgDef2.attributeKey = function () {
+    val += 'b';
+    return false;
+  };
+  new Klass(tree);
+  equal(val.substr(0,2), 'ab', 'Keys are matched with the .invalidKey member before the .attributeKey member.');
+  val = '';
+  pkgDef2.invalidKey = /./;
+  new Klass(tree);
+  equal(val, '', 'Per key, when an .invalidKey test matches, the .attributeKey test is skipped.');
+  pkgDef2.invalidKey = 0;
+  pkgDef2.attributeKey = function () {
+    return true;
+  };
+  pkgDef1.attributeKey = function () {
+    return false;
+  };
+  equal(pkgDef2(new Klass(tree)).nodes.length, 2, 'Matching .attributeKey and .invalidKey tests overrule failing ones (from other packages).');
+  pkgDef2.attributeKey = 0;
+  pkgDef1.attributeKey = /parse|nodes|attri/;
+  deepEqual(pkgDef1(new Klass(tree)).nodes[3].attributes, tree.to, 'Keys passing the .attributeKey test, become attributes of their container node.');
+  pkgDef2.invalidKey = function (name, value) {
+    return /^\-/.test(value);
+  };
+  equal(JSON.stringify(pkgDef2(new Klass(tree)).nodes), JSON.stringify(pkgDef1(new Klass(tree)).nodes), 'Each package receives with the same tree, composited from all .attributeKey and .invalidKey tests.');
+});
+
+test('Package-instance', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    someMbr = 'somename',
+    someMbrValue = {};
+  pkgDef.init = function () {
+    this[someMbr] = someMbrValue;
+  };
+  strictEqual(pkgDef(new Klass())[someMbr], someMbrValue, 'Members added via the .init function are present in the package-instance.');
+  ok(!pkgDef2(new Klass()).hasOwnProperty(someMbr), 'Adding instance members in one package, does not impact other packages.');
+});
+
+test('Nodes', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    someMbr = 'somename',
+    someMbrValue = {},
+    pkgInst, val;
+  pkgDef.init = function () {
+    this.nodes.forEach(function (node) {
+      node[someMbr] = someMbrValue;
+    });
+  };
+  strictEqual(pkgDef(new Klass()).nodes[0][someMbr], someMbrValue, 'Members added to nodes in the .nodes collection, via the .init function, are present in the package-instance.');
+  ok(!pkgDef2(new Klass()).nodes[0].hasOwnProperty(someMbr), 'Adding nodal members in one package, does not impact other packages.');
+  pkgDef.init = function () {
+    this.nodes.push(this.nodes[0]);
+  };
+  pkgInst = pkgDef(new Klass());
+  val = pkgInst.tank.currentIndex;
+  pkgInst.tank.go(pkgInst.nodes.length - 1);
+  equal(pkgInst.tank.currentIndex, val, 'Adding to the .nodes collection does not add navigable tree-nodes.');
+  pkgDef.init = function () {
+    delete this.nodes;
+  };
+  equal(pkgDef(new Klass()).tank.go(1), 2, 'Nodes of a package-instance can be manipulated without impacting the range of navigable nodes.');
+});
+
+module('Navigation');
+
+test('Events', 5, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
     vals = [],
+    rand = Math.random(),
     pkgInst = pkgDef(new Klass()),
     tank = pkgInst.tank;
   pkgDef.onBegin = pkgDef.onTraverse = pkgDef.onEnd = function (evt) {
     vals.push(evt);
   };
   tank.go(0);
-  deepEqual(vals, 'begin|traverse|end'.split('|'), 'Traversal events occur in the expected sequence.');
-  vals = [];
+  deepEqual(vals, 'begin|traverse|end'.split('|'), 'Traversal events occur in the expected order.');
+  pkgDef.onBegin = function (evt) {
+    vals = [evt];
+    tank.stop();
+  };
+  equal(tank.go(1), 0, 'The "traverse" event does not fire when navigation is stopped during the "begin event.');
+  deepEqual(vals, 'begin|end'.split('|'), 'The "begin" and "end" events fire when stopping navigation from the begin-callback.');
+  pkgDef.onBegin = function (evt) {
+    vals = 1;
+  };
   pkgDef.onTraverse = 0;
-  pkgDef.onBegin = function () {
-    this.tank.stop();
+  pkgDef.onEnd = function () {
+    vals++;
   };
-  equal(tank.go(0), 0, 'No nodes are traversed when navigation is stopped from the "begin" callback.');
-  equal(vals.length, 1, 'The "end" event fires regardless of whether navigation is stopped.');
-  strictEqual(tank.stop(), false, 'tank.stop() returns false when the Panzer instance is idle.');
-  pkgDef.onBegin = function () {
-    strictEqual(this.tank.stop(), true, 'tank.stop() returns true from an event callback.');
+  tank.go();
+  equal(vals, 2, 'The "begin" and "end" events fire when calling tank.go() with no arguments.');
+  pkgDef.onBegin = pkgDef.onEnd = 0;
+  pkgDef2.onTraverse = function () {
+    vals = rand;
   };
-  tank.go(0);
+  pkgDef(new Klass()).tank.go(1);
+  equal(vals, rand, 'All package callbacks fire, regardless of which package invokes tank.go().');
 });
 
-test('Traversal', function () {
+test('Tree-Pointer', 27, function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
     pkgInst = pkgDef(new Klass([['child','nodes'],'sibling','nodes'])),
     tank = pkgInst.tank,
-    evtsTally = [],
-    evtMap;
+    evts = [];
+
   pkgDef.onBegin = function () {
-    evtMap = [];
-    evtsTally.push(evtMap);
+    evts = [];
   };
-  pkgDef.onTraverse = function (name, type) {
-    evtMap.push(type + "");
+  pkgDef.onTraverse = function (evt, type) {
+    evts.unshift([type, this.tank.currentIndex]);
   };
   tank.go(0);
-  tank.go(pkgInst.nodes.length - 1);
-  tank.go(4);
   tank.go(1);
-  deepEqual(
-    evtsTally,
-    [
-      '0'.split(''),
-      '13310'.split(''),
-      '241310'.split(''),
-      '2420'.split('')
-    ],
-    'The tank traverses a tree as expected.'
-  );
+  equal(evts.length, 2, 'Navigating from a parent to a child node, results in two traversal events.');
+  deepEqual(evts.pop(), [1, 1], 'The first event signals when the tree-pointer enters the child node target.');
+  deepEqual(evts.pop(), [0, 1], 'The second event signals when the tree-pointer centers on the child node target.');
+  tank.go(1);
+  tank.go(0);
+  equal(evts.length, 2, 'Navigating from a child to a parent node, results in two traversal events.');
+  deepEqual(evts.pop(), [2, 1], 'The first event signals when the tree-pointer exits the child node.');
+  deepEqual(evts.pop(), [0, 0], 'The second event signals when the tree-pointer centers on the parent node target.');
+  tank.go(2);
+  tank.go(5);
+  equal(evts.length, 3, 'Navigating from one node to it\'s sibling, results in three traversal events.');
+  deepEqual(evts.pop(), [2, 2], 'The first event signals when the tree-pointer exits the current node.');
+  deepEqual(evts.pop(), [1, 5], 'The second event signals when the tree-pointer enters the sibling node target.');
+  deepEqual(evts.pop(), [0, 5], 'The third event signals when the tree-pointer centers on the sibling node target.');
+  tank.go(2);
+  tank.go(6);
+  equal(evts.length, 4, 'Navigating from one node to a right, non-adjacent sibling, results in at least four traversal events.');
+  deepEqual(evts.pop(), [2, 2], 'The first event signals when the tree-pointer exits the current node.');
+  deepEqual(evts.pop(), [3, 5], 'Traversal events are fired for every intermediary node that the tree-pointer forward-bypasses.');
+  deepEqual(evts.pop(), [1, 6], 'The third event signals when the tree-pointer enters the target node.');
+  deepEqual(evts.pop(), [0, 6], 'The fourth event signals when the tree-pointer centers on the target node.');
+  tank.go(6);
+  tank.go(2);
+  equal(evts.length, 4, 'Navigating from one node to a left, non-adjacent sibling, results in at least four traversal events.');
+  deepEqual(evts.pop(), [2, 6], 'The first event signals when the tree-pointer exits the current node.');
+  deepEqual(evts.pop(), [4, 5], 'Traversal events are fired for every intermediary node that the tree-pointer backward-bypasses.');
+  deepEqual(evts.pop(), [1, 2], 'The third event signals when the tree-pointer enters the target node.');
+  deepEqual(evts.pop(), [0, 2], 'The fourth event signals when the tree-pointer centers on the target node.');
+  tank.go(5);
+  tank.go(1);
+  equal(evts.length, 3, 'Navigating from an n-th child to it\'s parent node, results in at least three traversal events.');
+  deepEqual(evts.pop(), [2, 5], 'The first event signals when the tree-pointer exits the n-th child node.');
+  deepEqual(evts.pop(), [4, 2], 'Traversal events are fired for every intermediary node that the tree-pointer backward-bypasses.');
+  deepEqual(evts.pop(), [0, 1], 'The third event signals when the tree-pointer centers on the parent node.');
+
+  pkgDef.onBegin = pkgDef.onTraverse = evts = 0;
+  pkgDef.onTraverse = function () {
+    evts++;
+  }
+  equal(tank.go(1), evts, 'tank.go() returns the number of traversal events fired during navigation.');
+
+  pkgDef.onTraverse = 0;
+  equal(tank.go(1), 1, 'tank.go() returns 1 when the tree-pointer is already centered on the target node.');
+  tank.go(0);
+  pkgDef.onTraverse = function (evt, type) {
+    if (type === 1) {
+      this.tank.stop();
+    }
+  };
+  tank.go(6);
+  ok(tank.go() > 0, 'When the tree-pointer is not at rest (i.e., "centered"), calling tank.go() with no arguments is the same as passing the index of the last node target.');
 });
 
-test('Routing', function () {
+test('Routing', 4, function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -618,7 +765,7 @@ test('Routing', function () {
   equal(val, 2, 'Redirecting in the opposite direction, during a "bover" event, does not trigger an "over" event.');
 });
 
-test('Postbacks', function () {
+test('Postbacks', 3, function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -627,7 +774,7 @@ test('Postbacks', function () {
     val = 0,
     lastIndex = pkgInst.nodes.length - 1,
     tgtIndex = 1,
-    postId, normalTraversalCount;
+    postId;
   function inc() {
     val++;
   }
@@ -654,16 +801,154 @@ test('Postbacks', function () {
       tank.go(tgtIndex);
     }
   };
-  normalTraversalCount = tank.go(lastIndex);
-  val = 0;
+});
+
+module('Behavior');
+
+test('Default Tree-Pointer', 2, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    tree = ['any','js','object'],
+    tgtIdx = 3,
+    val = 0;
+  pkgDef.init = function () {
+    this.tank.go(tgtIdx);
+  };
+  equal(pkgDef(new Klass(tree)).tank.currentIndex, tgtIdx, 'Calling tank.go() during package-instance initialization will change initial tank.currentIndex.');
+  pkgDef.onBegin = pkgDef.onTraverse = pkgDef.onEnd = function () {
+    val++;
+  }
+  equal(val, 0, 'tank.go() does not trigger navigation events when called during package-instance initialization.');
+});
+
+test('Tank API Interations', 8, function() {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    val, pkgInst;
+  strictEqual(pkgDef(new Klass()).tank.stop(), false, 'tank.stop() returns false when called outside an event callback.');
+
+  ok('onBegin|onTraverse|onEnd'.split('|')
+    .every(function (evtName) {
+      var
+        stopRtnVal;
+      pkgDef[evtName] = function () {
+        stopRtnVal = this.tank.stop();
+      };
+      pkgDef(new Klass()).tank.go(0);
+      pkgDef[evtName] = 0;
+      return stopRtnVal === true;
+    }),
+    'tank.stop() returns true when called from all callback functions.'
+  );
+
+  pkgInst = pkgDef(new Klass());
+  val = 1;
+  pkgDef.onBegin = function () {
+    equal(this.tank.targetIndex, val, 'tank.targetIndex matches the integer passed to the originating tank.go() call.');
+    this.tank.stop();
+  };
+  pkgInst.tank.go(val);
+  equal(pkgInst.tank.targetIndex, val, 'tank.targetIndex is preserved when navigation is stopped.');
+  pkgDef.onBegin = 0;
+
   pkgDef.onEnd = function () {
-    if (!val++) {
-      this.tank.post(
+    this.tank.stop();
+  };
+  pkgInst.tank.go();
+  deepEqual([pkgInst.tank.currentIndex, pkgInst.tank.targetIndex], [val, -1], 'Calling tank.stop() during an "end" event has no impact on the tree-pointer.');
+  pkgDef.onEnd = 0;
+
+  pkgInst.tank.go(0);
+  pkgDef.onTraverse = function (evt, type) {
+    if (type === 0) {
+      this.tank.stop();
+    }
+  };
+  pkgInst.tank.go(val);
+  deepEqual([pkgInst.tank.currentIndex, pkgInst.tank.targetIndex], [val, -1], 'Calling tank.stop() during a "traversal" event of type 0, has no impact on the tree-pointer.');
+  pkgDef.onTraverse = 0;
+
+  val = 0;
+  pkgDef.onBegin = pkgDef.onTraverse = pkgDef.onEnd = function () {
+    this.tank.stop();
+    this.tank.go();
+    val++;
+  };
+  pkgDef(new Klass()).tank.go(1);
+  equal(val, 4, 'Within the callbacks, invoking tank.go() with no arguments nullifies prior calls to tank.stop().');
+  pkgDef.onBegin = pkgDef.onTraverse = pkgDef.onEnd = 0;
+
+  val = [0,1];
+  pkgDef.onTraverse = function () {
+    val[0] += 1;
+  };
+  pkgDef.onEnd = function () {
+    var tank = this.tank;
+    if (val[1]) {
+      val[1] = 0;
+      tank.post(
         function () {
-          tank.go(tgtIndex);
+          tank.go(0);
         }
       );
     }
   };
-  ok(normalTraversalCount > tank.go(lastIndex), 'The traversal count is compromised when tank.go() directs the same Panzer instance, via a postback.');
- });
+  ok(pkgDef(new Klass(['any', ])).tank.go() !== val[0], 'The traversal count - returned by tank.go() - is compromised when a callback sets a postback that also calls tank.go().');
+});
+
+test('Event Callbacks', 1, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    cut = 0,
+    normal = 0;
+  pkgDef.onTraverse = function () {
+    normal++;
+  };
+  pkgDef(new Klass()).tank.go(1);
+  pkgDef.onTraverse = function () {
+    cut++;
+    pkgDef.onTraverse = 0;
+  };
+  pkgDef(new Klass()).tank.go(1);
+  ok(cut < normal, 'Package callbacks are not cached, and may be cached during navigation.');
+});
+
+test('Package-Instance', 2, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    val = {};
+  pkgDef.init = function () {
+    ok(!this.hasOwnProperty('proxy'), 'The .proxy member is not present during package-instance initialization.');
+  };
+  new Klass();
+  pkgDef.init = function () {
+    this.proxy = val;
+  };
+  ok(pkgDef(new Klass()).proxy !== val, 'The .proxy member is set/overwritten after the package-instance initialized.');
+});
+
+test('Panzer-Instance/Proxy Methods', 4, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef1 = Klass.pkg('a'),
+    pkgDef2 = Klass.pkg('b'),
+    mthdName = 'foo',
+    val = 0,
+    mthd1 = function () {
+      equal(val, 1, 'The last defined package has precedence over proxy method names.');
+    },
+    mthd2 = function () {
+      val++;
+      ok(this.pkgs.a[mthdName], 'Any proxy method can access the proxy methods of other packages.');
+      this.pkgs.a[mthdName].call(this);
+    };
+  ok((new Klass()).pkgs.a, 'The .pkgs member references all package proxy methods by name.');
+  ok((new Klass()).pkgs.a.pkgs.a, 'Each .pkgs member has a recursive reference to the .pkgs member.');
+  pkgDef1.proxy[mthdName] = mthd1;
+  pkgDef2.proxy[mthdName] = mthd2;
+  (new Klass())[mthdName]();
+});
