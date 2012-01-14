@@ -1,3 +1,6 @@
 [submodule "test/qunit"]
 	path = test/qunit
 	url = git://github.com/jquery/qunit.git
+[submodule "src/genData"]
+	path = src/genData
+	url = git://github.com/bemson/genData.git
