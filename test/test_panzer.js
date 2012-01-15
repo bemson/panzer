@@ -131,7 +131,7 @@ test('Nodes', function () {
   equal(pkgDef(new Klass()).nodes.length, 2, 'Even when a Panzer instance tree is not an object, two nodes exist.');
   'name|value|index|depth|attributes|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex'.split('|')
     .forEach(function (mbr) {
-      ok(node.hasOwnProperty(mbr), 'Has a "' + mbr + '" member.');
+      ok(node.hasOwnProperty(mbr), 'Each node has a "' + mbr + '" member.');
     });
   '_tree|_root'.split('|')
     .forEach(function (name, idx) {
@@ -280,21 +280,40 @@ test('.init', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
+    tree = ['any','js','object'],
     expandoProp = 'abc',
     expandoVal = {},
     nodeMbrName = 'foo',
+    val = 0,
     pkgInst, initScope;
   equal(pkgDef.init, 0, 'Default value is 0.');
   pkgDef.init = function () {
     initScope = this;
-    ok(1, 'When present, the .init function is invoked when a Panzer class is instantiated.');
+    args = arguments;
+    val++;
   };
   pkgInst = pkgDef(new Klass());
+  equal(val, 1, 'The .init function is called during instantiation.');
+  equal(args.length, 1, 'One argument is passed to the function.');
+  equal(typeof args[0], 'object', 'The argument is an object.');
+  pkgDef.init = function (cfg) {
+    val = cfg === expandoVal;
+  };
+  new Klass(tree, expandoVal);
+  pkgDef.init = function (cfg) {
+    val = typeof cfg;
+  };
+  ok(val && ['non-object', 1, 0, function () {}].every(function (secondArgument) {
+      new Klass('something', secondArgument);
+      return typeof secondArgument !== val;
+    }),
+    'When the second parameter of a Panzer class is an object, it is passed to the .init function.'
+  );
   ok(initScope === pkgInst, 'The scope of the .init function is the package-instance.');
   pkgDef.init = function () {
-    ok(this.hasOwnProperty('tank'), 'The .tank member is available from the .init function.');
-    ok(this.hasOwnProperty('nodes'), 'The .nodes collection is available from the .init function.');
-    ok(!this.hasOwnProperty('proxy'), 'The .proxy member is not available from the .init function.');
+    ok(this.hasOwnProperty('tank'), 'The .tank member is available during initialization.');
+    ok(this.hasOwnProperty('nodes'), 'The .nodes collection is available during initialization.');
+    ok(!this.hasOwnProperty('proxy'), 'The .proxy member is not available during initialization.');
   };
   pkgInst = pkgDef(new Klass());
   ok(
@@ -304,12 +323,6 @@ test('.init', function () {
       }),
     'The .proxy and .tank members are added to a package-instance, after the .init function executes.'
   );
-  // pkgDef.init = function () {
-  //   this[expandoProp] = expandoVal;
-  // };
-  // pkgInst = pkgDef(new Klass());
-  // equal(pkgInst[expandoProp], expandoVal, 'Members added to the scope of an .init function are present in the package-instance.');
-  // ok(!Klass.pkg('b')(new Klass()).hasOwnProperty('expandoProp'), 'Members added via the .init function, are not added to the instances of other packages.');
   pkgDef.node[nodeMbrName] = expandoVal;
   pkgDef.init = function () {
     strictEqual(this.nodes[0][nodeMbrName], expandoVal, 'Members of the .node object are available to node instances within the .init function.');
