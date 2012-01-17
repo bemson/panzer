@@ -161,7 +161,7 @@
   }
 
   // Tree constructor
-  function Tree(panzer, rawtree, pkgConfig) {
+  function Tree(panzer, panzerInst, rawtree, pkgConfig) {
     var
       // alias self (for closures)
       tree = this;
@@ -319,13 +319,17 @@
     });
     // with each initialized entry...
     tree.pkgs.forEach(function (pkgEntry, idx, pkgs) {
-      // set faux toString method
-      pkgEntry.proxy.toString = tree.y[1];
       // add shared proxy object
       pkgEntry.proxy.pkgs = tree.y[0];
+      // set faux toString method
+      pkgEntry.proxy.toString = tree.y[1];
       // expose last package-proxy to all proxy instances
-      pkgEntry.inst.proxy = pkgs[pkgs.length - 1].proxy;
+      pkgEntry.inst.proxy = panzerInst;
     });
+    // add shared proxy object
+    panzerInst.pkgs = tree.y[0];
+    // set faux toString method
+    panzerInst.toString = tree.y[1];
     // flag that this instance is ready
     this.ret = 1;
   }
@@ -521,6 +525,7 @@
           pkgDef.init = pkgDef.attributeKey = pkgDef.invalidKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = 0;
           // define new proxy-model for this package
           function proxyModel() {}
+          // chain the existing proxy prototype to the new one
           proxyModel.prototype = new panzer.Y();
           // chain existing proxy model, then expose the prototype in the package-definition and assign to the TreeProxy prototype
           panzer.P.prototype = pkgDef.proxy = proxyModel.prototype;
@@ -581,13 +586,8 @@
           // throw error
           throw new Error('Missing new operator.');
         }
-        // (otherwise) with properties from a new tree...
-        with (new Tree(panzer, tree, typeof pkgConfig === 'object' ? pkgConfig : {})) {
-          // alias it's proxy collection
-          this.pkgs = y[0];
-          // override the built-in toString method
-          this.toString = y[1];
-        }
+        // create a private tree that references this proxy object
+        new Tree(panzer, this, tree, typeof pkgConfig === 'object' ? pkgConfig : {});
       }
       // add pkg method
       PanzerKlass.pkg = function (name) {
