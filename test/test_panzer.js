@@ -115,6 +115,7 @@ test('Instances', function () {
   equal(pkgInst.nodes.length, 2, 'Two nodes are added to those parsed from the tree parameter.');
   ok(pkgInst.hasOwnProperty('proxy'), 'There is a non-inherited .proxy member.');
   ok(pkgInst.proxy === pkgDef2(proxy).proxy, 'The .proxy object is shared amongst package-instances.');
+  ok(pkgInst.proxy === proxy, 'The .proxy object is the class instance.');
   ok(pkgInst.hasOwnProperty('tank'), 'There is a non-inherited .tank member.');
   equal(typeof pkgInst.tank, 'object', 'The .tank member is an object.');
   ok(pkgInst.tank === pkgDef2(proxy).tank, 'Package-instances share a single .tank object.');
@@ -835,7 +836,7 @@ test('Default Tree-Pointer', 2, function () {
   equal(val, 0, 'tank.go() does not trigger navigation events when called during package-instance initialization.');
 });
 
-test('Tank API Interations', 8, function() {
+test('Tank API Interactions', 8, function() {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
