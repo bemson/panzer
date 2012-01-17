@@ -31,7 +31,7 @@
         // shortcut for regular expression
         r = key + 'r';
       // return false if the name is empty, or true when the handler of any package-definition returns true
-      return name.length && PZR.d.some(function (pkgDef) {
+      return PZR.d.some(function (pkgDef) {
         // if this key is a function...
         if (pkgDef.c[f]) {
           // return result of call
@@ -50,10 +50,10 @@
         var
           // alias node
           node = this,
-          // flag whether this item is a invalid key
-          isInvalidKey = testNodeKey('n', name, value),
-          // flag whether this item is an attribute key
-          isAttributeKey = !isInvalidKey && testNodeKey('a', name, value);
+          // flag whether this item is a invalid key, only if this is not the first node
+          isInvalidKey = parent && testNodeKey('n', name, value),
+          // flag whether this item is an attribute key, only if this is not the first node
+          isAttributeKey = parent && !isInvalidKey && testNodeKey('a', name, value);
         // if this node's key is invalid or flagged as an attribute (by one any of the packages)...
         if (isInvalidKey || isAttributeKey) {
           // exclude from dataset
