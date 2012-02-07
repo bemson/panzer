@@ -73,7 +73,7 @@
           // capture depth
           node.depth = parent ? parent.depth + 1 : 1; // start depth at 1, since _tree node will be prepended later
           // set name
-          node.name = parent ? name : '_root';
+          node.name = parent ? name : 'PROOT';
           // init attributes property - holds all attributes of this node
           node.attributes = {};
           // start or extend parent path
@@ -210,7 +210,7 @@
       // reference index of root as child of the tree
       children.push(1);
       // set name
-      name = '_tree';
+      name = 'PNULL';
       // set index
       index = 0;
       // set depth
