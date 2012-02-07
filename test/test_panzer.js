@@ -130,11 +130,11 @@ test('Nodes', function () {
     pkgInst = pkgDef(proxy),
     node = pkgInst.nodes[0];
   equal(pkgDef(new Klass()).nodes.length, 2, 'Even when a Panzer instance tree is not an object, two nodes exist.');
-  'name|value|index|depth|attributes|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex'.split('|')
+  'name|value|index|depth|attributes|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex|childIndex'.split('|')
     .forEach(function (mbr) {
-      ok(node.hasOwnProperty(mbr), 'Each node has a "' + mbr + '" member.');
+      ok(node.hasOwnProperty(mbr), 'Has a "' + mbr + '" member.');
     });
-  '_tree|_root'.split('|')
+  'PNULL|PROOT'.split('|')
     .forEach(function (name, idx) {
       equal(pkgInst.nodes[idx].name, name, 'By default, the name member of the node at index ' + idx + ' is "' + name + '".');
     });
