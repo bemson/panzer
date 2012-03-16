@@ -253,6 +253,16 @@ test('.node', function () {
   nodeInst[nodeMthdName]();
 });
 
+test('.index', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDefA = Klass.pkg('a'),
+    pkgDefB = Klass.pkg('b');
+  equal(typeof pkgDefA.index, 'number', 'Is a number');
+  equal(pkgDefA.index, 0, 'The .index is zero-based.');
+  equal(pkgDefA.index + 1, pkgDefB.index, 'The .index value increments by one with each newly defined package.');
+});
+
 test('.proxy', function () {
   var
     Klass = Panzer.create(),
@@ -308,8 +318,12 @@ test('.init', function () {
       new Klass('something', secondArgument);
       return typeof secondArgument !== val;
     }),
-    'When the second parameter of a Panzer class is an object, it is passed to the .init function.'
+    'When the second parameter of a Panzer class is not an object, it is not passed the .init function.'
   );
+  pkgDef.init = function (cfg) {
+    ok(cfg === expandoVal, 'When the second parameter of a Panzer class is an object, it is passed through to the .init function.');
+  };
+  new Klass('something', expandoVal);
   ok(initScope === pkgInst, 'The scope of the .init function is the package-instance.');
   pkgDef.init = function () {
     ok(this.hasOwnProperty('tank'), 'The .tank member is available during initialization.');
@@ -317,13 +331,7 @@ test('.init', function () {
     ok(!this.hasOwnProperty('proxy'), 'The .proxy member is not available during initialization.');
   };
   pkgInst = pkgDef(new Klass());
-  ok(
-    'tank|proxy'.split('|')
-      .every(function (prop) {
-        return pkgInst.hasOwnProperty(prop);
-      }),
-    'The .proxy and .tank members are added to a package-instance, after the .init function executes.'
-  );
+  ok(pkgInst.hasOwnProperty('proxy'), 'The .proxy member was added to the package-instance, after the .init function executed.');
   pkgDef.node[nodeMbrName] = expandoVal;
   pkgDef.init = function () {
     strictEqual(this.nodes[0][nodeMbrName], expandoVal, 'Members of the .node object are available to node instances within the .init function.');
@@ -530,6 +538,30 @@ test('.onEnd', function () {
     return false;
   };
   tank.go(0);
+});
+
+test('.getSuper()', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDefA = Klass.pkg('a'),
+    pkgDefB = Klass.pkg('b'),
+    pkgDefC = Klass.pkg('c'),
+    someFnc = function () {};
+  equal(typeof pkgDefA.getSuper, 'function', 'This is a function.');
+  ok(
+    [1,'', undefined, null, {}, function () {}, []].every(
+      function (arg) {
+        return typeof pkgDefB.getSuper(arg) === 'function';
+      }
+    ),
+    'Always returns a function.'
+  );
+  pkgDefA.proxy.foo = someFnc;
+  pkgDefC.proxy.foo = function () {};
+  equal(pkgDefC.getSuper('foo'), pkgDefA.proxy.foo, 'Returns the proxy method defined in earlier packages.');
+  equal(pkgDefA.getSuper('foo'), pkgDefC.getSuper('bar'), 'Returns a "noop" function for the first package or when the method is not available in earlier packages.');
+  delete pkgDefA.proxy;
+  equal(pkgDefC.getSuper('foo'), someFnc, 'Reads the private prototype, not the .proxy member of the pakage-definition.');
 });
 
 module('Structure');
