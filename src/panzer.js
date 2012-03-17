@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.1
+ * Panzer v0.2
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -124,41 +124,9 @@
     ),
     // alias the Array's prototype for minification purposes
     arrayPrototype = Array.prototype;
-  /**
-    Shims for missing native object methods (on crap browsers).
-    WARNING: These methods are not robust and do no validation! They merely support the needs of this library.
-    Shim these methods yourself before loading this script, if you want something equivalent to https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/
-    Ofcourse, we're targeting IE here. I didn't want to include this, but - then again - no one wants to work with IE... We just have to.
-  */
-  if (!arrayPrototype.some) {
-    arrayPrototype.some = function(fnc, scope) {
-      for (var i = 0, j = this.length; i < j; i++) {
-        if (fnc.call(scope, this[i], i, this)) {
-          return true;
-        }
-      }
-      return false;
-    };
-  }
-  if (!arrayPrototype.forEach) {
-    arrayPrototype.forEach = function(fnc, scope) {
-      for (var i = 0, j = this.length; i < j; i++) {
-        fnc.call(scope, this[i], i, this);
-      }
-    };
-  }
-  if (!arrayPrototype.map) {
-    arrayPrototype.map = function(fnc, scope) {
-      var
-        i = 0,
-        j = this.length,
-        results = new Array(j);
-      for (; i < j; i++) {
-        results[i] = fnc.call(scope, this[i], i, this);
-      }
-      return results;
-    };
-  }
+
+  // define empty function here for memory and performance
+  function noOp() {}
 
   // Tree constructor
   function Tree(panzer, panzerInst, rawtree, pkgConfig) {
@@ -333,6 +301,7 @@
     // flag that this instance is ready
     this.ret = 1;
   }
+
   Tree.prototype = {
     // head towards the current target
     go: function () {
@@ -500,6 +469,12 @@
     }
   };
 
+  function PanzerGetSuperMethod(pkgIdx, name) {
+    // return the target method from the previous package or a generic noOp function
+    // TODO: fire warning when no super method exists?
+    return (typeof name === 'string' && pkgIdx && this.d[pkgIdx - 1].proxy.prototype[name]) || noOp;
+  }
+
   function PanzerResolvePackage(name) {
     var
       // alias self for closures
@@ -510,9 +485,6 @@
       if (typeof name === 'string' && /\w/.test(name)) {
         // if no package has this name...
         if (!panzer.i.hasOwnProperty(name)) {
-          var
-            // get what will be the index of this package definition
-            pkgIndex = panzer.d.length;
           // define a package definition function, which returns the private instance of it's public proxy
           function pkgDef(pxy) {
             // if called without new...
@@ -521,6 +493,11 @@
               return pxy instanceof panzer.P && pxy.toString(panzer, name);
             }
           }
+          // set package definition super-method finder
+          pkgDef.getSuper = function (name) {
+            // return result of finding super version of the given method
+            return PanzerGetSuperMethod.call(panzer, this.index, name);
+          };
           // set default static members
           pkgDef.init = pkgDef.attributeKey = pkgDef.invalidKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = 0;
           // define new proxy-model for this package
@@ -535,8 +512,8 @@
           function nodeModel() {}
           // expose the node's prototype in the package-definition
           pkgDef.node = nodeModel.prototype;
-          // define and index this package definition for this panzer
-          panzer.i[name] = panzer.d.push({
+          // define and index this package definition for this panzer, and capture index in package definition
+          pkgDef.index = panzer.i[name] = panzer.d.push({
             // the package name
             name: name,
             // the (public) definition function
@@ -565,7 +542,7 @@
     version: '0.1',
     create: function () {
       var
-        //a panzer platform
+        // a panzer platform
         panzer = {
           // number of trees created with this panzer
           c: 0,
@@ -578,7 +555,6 @@
           // proxy constructor
           P: PanzerKlass
         };
-
       // init panzer wrapper
       function PanzerKlass(tree, pkgConfig) {
         // if not invoked with the "new" operator...
@@ -594,6 +570,12 @@
         // return result of resolving a package for this panzer
         return PanzerResolvePackage.apply(panzer, arguments);
       };
+      /*
+      packageDefinition.addInitializer(fnc);
+      Klass.pkg(name, fnc); -> auto executes fnc
+      Each package definition will have .addInitializer(), which takes a function or the arguments object (to extract the .callee function)
+      Allow packages to have multiple initializers by accepting a second param in .pkg() - each fnc is given the package definition and called in scope of the window (global)
+      */
       // set TreeProxy prototype to the panzer's proxy base
       //TreeProxy.prototype = panzer.Y;
       // return the panzer platform
