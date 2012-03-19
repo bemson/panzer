@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.2
+ * Panzer v0.2.1
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -164,7 +164,6 @@
         nr: n && n instanceof RegExp ? n : 0
       };
     });
-
     // start generating the initial tree
     tree.nodes = genNodes(rawtree);
     // clear PZR reference (for better garbage collection)
@@ -173,21 +172,19 @@
     tree.nodes[0].parentIndex = tree.nodes[0].childIndex = 0;
     // prepend the tree node
     tree.nodes.unshift(genNodes()[0]);
-    // with the prepended phantom node...
-    with (tree.nodes[0]) {
-      // reference index of root as child of the tree
-      children.push(1);
-      // set name
-      name = 'PNULL';
-      // set index
-      index = 0;
-      // set depth
-      depth = 0;
-      // set path
-      path = '..//';
-      // flag that we are already "on" this first node
-      ctx = 1;
-    }
+      // NOTE: Perfect case for a "with" statement, but it disrupts minifiers :-(
+    // reference index of root as child of the tree
+    tree.nodes[0].children.push(1);
+    // set name
+    tree.nodes[0].name = 'PNULL';
+    // set index
+    tree.nodes[0].index = 0;
+    // set depth
+    tree.nodes[0].depth = 0;
+    // set path
+    tree.nodes[0].path = '..//';
+    // flag that we are already "on" this first node
+    tree.nodes[0].ctx = 1;
     // reference the first and last child index
     tree.nodes[0].firstChildIndex = tree.nodes[0].lastChildIndex = 1;
     // define tree package-instance api - all package instances control the tree via these members
