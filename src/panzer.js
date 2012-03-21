@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.2.1
+ * Panzer v0.2.2
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
