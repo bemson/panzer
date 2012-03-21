@@ -1,8 +1,8 @@
 # Panzer
 by Bemi Faison
 
-version 0.2.1
-(3/20/12)
+version 0.2.2
+(3/21/12)
 
 A comprehensive node-tree solution, for smart data.\*
 
