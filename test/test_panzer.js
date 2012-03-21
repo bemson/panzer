@@ -7,10 +7,9 @@ test('Dependencies', 4, function () {
   equal(typeof genData, 'function', 'The genData function is present.');
 });
 
-test('Namespace', 4, function () {
+test('Namespace', 3, function () {
   equal(typeof Panzer, 'object', 'The Panzer namespace is present.');
   equal(typeof Panzer.version, 'string', 'The Panzer.version string is present.');
-  ok(!isNaN(parseInt(Panzer.version)), 'The Panzer.version string can be parsed into a number.');
   equal(typeof Panzer.create, 'function', 'The Panzer.create() method is present.');
 });
 
