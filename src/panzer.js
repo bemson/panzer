@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.2.2
+ * Panzer v0.2.3
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -487,7 +487,7 @@
             // if called without new...
             if (!(this instanceof arguments.callee)) {
               // return the package instance registered at this package definitions index (or false)
-              return pxy instanceof panzer.P && pxy.toString(panzer, name);
+              return pxy instanceof panzer.d[0].proxy && pxy.toString(panzer, name);
             }
           }
           // set package definition super-method finder
@@ -536,7 +536,7 @@
 
   // expose public Panzer namespcae
   environment.Panzer = {
-    version: '0.2.2',
+    version: '0.2.3',
     create: function () {
       var
         // a panzer platform

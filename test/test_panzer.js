@@ -976,7 +976,7 @@ test('Package-Instance', 2, function () {
   ok(pkgDef(new Klass()).proxy !== val, 'The .proxy member is set/overwritten after the package-instance initialized.');
 });
 
-test('Panzer-Instance/Proxy Methods', 4, function () {
+test('Panzer-Instance/Proxy Methods', 6, function () {
   var
     Klass = Panzer.create(),
     pkgDef1 = Klass.pkg('a'),
@@ -984,15 +984,17 @@ test('Panzer-Instance/Proxy Methods', 4, function () {
     mthdName = 'foo',
     val = 0,
     mthd1 = function () {
-      equal(val, 1, 'The last defined package has precedence over proxy method names.');
+      ok(val, 'The last defined package has precedence over proxy method names.');
+      ok(pkgDef2(this).proxy !== this, 'The scope of "<Proxy>.pkgs.<PackageName>" methods is not the public proxy.');
+      ok(pkgDef1(this) && pkgDef2(this), 'The scope of "<Proxy>.pkgs.<PackageName>" methods can be used to access any package-instance.');
     },
     mthd2 = function () {
       val++;
       ok(this.pkgs.a[mthdName], 'Any proxy method can access the proxy methods of other packages.');
-      this.pkgs.a[mthdName].call(this);
+      this.pkgs.a[mthdName]();
     };
-  ok((new Klass()).pkgs.a, 'The .pkgs member references all package proxy methods by name.');
-  ok((new Klass()).pkgs.a.pkgs.a, 'Each .pkgs member has a recursive reference to the .pkgs member.');
+  ok((new Klass()).pkgs.a, '<Proxy>.pkgs member references all package proxy methods by name.');
+  ok((new Klass()).pkgs.a.pkgs.a, 'Each <Proxy>.pkgs member has a recursive reference to the "pkgs".');
   pkgDef1.proxy[mthdName] = mthd1;
   pkgDef2.proxy[mthdName] = mthd2;
   (new Klass())[mthdName]();
