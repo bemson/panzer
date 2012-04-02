@@ -7,9 +7,10 @@ test('Dependencies', 4, function () {
   equal(typeof genData, 'function', 'The genData function is present.');
 });
 
-test('Namespace', 3, function () {
+test('Namespace', 4, function () {
   equal(typeof Panzer, 'object', 'The Panzer namespace is present.');
   equal(typeof Panzer.version, 'string', 'The Panzer.version string is present.');
+  ok(Panzer.version.replace(/\./g, '') == +Panzer.version.replace(/\./g, ''), 'The Panzer.version represents a number, after removing the periods.');
   equal(typeof Panzer.create, 'function', 'The Panzer.create() method is present.');
 });
 
@@ -104,10 +105,14 @@ test('Definition/Class', function () {
 test('Instances', function () {
   var
     Klass = Panzer.create(),
-    pkgDef = Klass.pkg('a'),
-    pkgDef2 = Klass.pkg('b'),
+    pkgA = 'a',
+    pkgB = 'b',
+    pkgDef = Klass.pkg(pkgA),
+    pkgDef2 = Klass.pkg(pkgB),
     proxy = new Klass(),
-    pkgInst = pkgDef(proxy);
+    pkgInst = pkgDef(proxy),
+    pkgInst2 = pkgDef2(proxy)
+  ;
   ok(pkgInst.hasOwnProperty('nodes'), 'There is a non-inherited .nodes member.');
   ok(pkgInst.nodes instanceof Array, 'The .nodes member is an array.');
   ok(pkgInst.nodes !== pkgDef2(proxy).nodes, 'Each package-instance has a separate .nodes collection.');
@@ -118,6 +123,16 @@ test('Instances', function () {
   ok(pkgInst.hasOwnProperty('tank'), 'There is a non-inherited .tank member.');
   equal(typeof pkgInst.tank, 'object', 'The .tank member is an object.');
   ok(pkgInst.tank === pkgDef2(proxy).tank, 'Package-instances share a single .tank object.');
+  ok(pkgInst.pkgs[pkgA] === pkgInst && pkgInst.pkgs[pkgB] === pkgInst2, 'Package-instances reference all other package instances, after initialization.');
+  equal(typeof pkgInst.pkgs, 'object', 'The .pkgs member is an object.');
+  ok(pkgInst.pkgs === pkgDef2(proxy).pkgs, 'Package-instances share a single .pkgs object.');
+  pkgDef.init = function () {
+    ok(!this.pkgs.hasOwnProperty(pkgB), 'Newer package instances are not available during initialization.');
+  };
+  pkgDef2.init = function () {
+    ok(this.pkgs.hasOwnProperty(pkgA), 'Older package instances are available during initialization.');
+  };
+  new Klass();
 });
 
 test('Nodes', function () {
@@ -548,17 +563,16 @@ test('.getSuper()', function () {
     someFnc = function () {};
   equal(typeof pkgDefA.getSuper, 'function', 'This is a function.');
   ok(
-    [1,'', undefined, null, {}, function () {}, []].every(
+    [1,'', 'foo', 'bar', undefined, null, {}, function () {}, []].every(
       function (arg) {
-        return typeof pkgDefB.getSuper(arg) === 'function';
+        return pkgDefB.getSuper(arg) === false;
       }
     ),
-    'Always returns a function.'
+    'Returns false when given a non/empty string argument.'
   );
   pkgDefA.proxy.foo = someFnc;
   pkgDefC.proxy.foo = function () {};
   equal(pkgDefC.getSuper('foo'), pkgDefA.proxy.foo, 'Returns the proxy method defined in earlier packages.');
-  equal(pkgDefA.getSuper('foo'), pkgDefC.getSuper('bar'), 'Returns a "noop" function for the first package or when the method is not available in earlier packages.');
   delete pkgDefA.proxy;
   equal(pkgDefC.getSuper('foo'), someFnc, 'Reads the private prototype, not the .proxy member of the pakage-definition.');
 });
