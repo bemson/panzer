@@ -129,7 +129,7 @@
   function noOp() {}
 
   // Tree constructor
-  function Tree(panzer, panzerInst, rawtree, pkgConfig) {
+  function Tree(panzer, proxyInst, rawtree, pkgConfig) {
     var
       // alias self (for closures)
       tree = this;
@@ -137,9 +137,11 @@
     tree.panzer = PZR = panzer;
     // init proxy shared objects collection
     tree.y = [
-      // [0] the shared .pkgs member
+      // [0] the shared <proxy>.pkgs member
       {},
-      // [1] the fake toString method
+      // [1] the shared <package>.pkgs member
+      {},
+      // [2] the fake <proxy>.toString method
       function (platform, pkgName) {
         // when passed this panzer, return the corresponding tree or the default toString result
         return platform === panzer ? (pkgName ? (tree.pkgs[panzer.i[pkgName]] || {}).inst || false : tree) : toStringResult;
@@ -263,6 +265,10 @@
       pkgProxy.prototype = pkgDef.proxy.prototype;
       // init and capture the package-instance-proxy in the shared .pkgs object
       tree.y[0][pkgDef.name] = pkgEntry.proxy = new pkgProxy();
+      // capture this package instance in the shared <package>.pkgs member
+      tree.y[1][pkgDef.name] = pkgEntry.inst;
+      // add the shared pkgs member to the package instance
+      pkgEntry.inst.pkgs = tree.y[1];
       // clone nodes for this package instance, using this package's node prototype
       pkgEntry.inst.nodes = genCloneNodes(
         // nodes to copy
@@ -287,14 +293,14 @@
       // add shared proxy object
       pkgEntry.proxy.pkgs = tree.y[0];
       // set faux toString method
-      pkgEntry.proxy.toString = tree.y[1];
+      pkgEntry.proxy.toString = tree.y[2];
       // expose last package-proxy to all proxy instances
-      pkgEntry.inst.proxy = panzerInst;
+      pkgEntry.inst.proxy = proxyInst;
     });
     // add shared proxy object
-    panzerInst.pkgs = tree.y[0];
+    proxyInst.pkgs = tree.y[0];
     // set faux toString method
-    panzerInst.toString = tree.y[1];
+    proxyInst.toString = tree.y[2];
     // flag that this instance is ready
     this.ret = 1;
   }
