@@ -469,7 +469,7 @@
   function PanzerGetSuperMethod(pkgIdx, name) {
     // return the target method from the previous package or a generic noOp function
     // TODO: fire warning when no super method exists?
-    return (typeof name === 'string' && pkgIdx && this.d[pkgIdx - 1].proxy.prototype[name]) || noOp;
+    return (typeof name === 'string' && pkgIdx && this.d[pkgIdx - 1].proxy.prototype[name]) || false;
   }
 
   function PanzerResolvePackage(name) {
