@@ -1,6 +1,6 @@
 {
   "name": "Panzer"
-  , "version": "0.2.3"
+  , "version": "0.2.4"
   , "description": "A comprehensive node-tree solution, for smart data."
   , "dependencies" : {
     "genData": "1.2.x"

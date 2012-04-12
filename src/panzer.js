@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.2.3
+ * Panzer v0.2.4
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -542,7 +542,7 @@
 
   // expose public Panzer namespcae
   environment.Panzer = {
-    version: '0.2.3',
+    version: '0.2.4',
     create: function () {
       var
         // a panzer platform
