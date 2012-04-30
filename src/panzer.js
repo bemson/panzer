@@ -125,9 +125,6 @@
     // alias the Array's prototype for minification purposes
     arrayPrototype = Array.prototype;
 
-  // define empty function here for memory and performance
-  function noOp() {}
-
   // Tree constructor
   function Tree(panzer, proxyInst, rawtree, pkgConfig) {
     var
@@ -434,10 +431,11 @@
           tree.loop = 0;
         }
       }
-      // fire post-loop functions
+      // with each item in .posts...
       tree.posts.forEach(function (fnc) {
-        if (typeof fnc === 'function') {
-          // execute this post-function
+        // if there is something to execute...
+        if (fnc) {
+          // execute the post-function
           fnc();
         }
       });
@@ -473,7 +471,7 @@
   };
 
   function PanzerGetSuperMethod(pkgIdx, name) {
-    // return the target method from the previous package or a generic noOp function
+    // return the target method from the previous package or false
     // TODO: fire warning when no super method exists?
     return (typeof name === 'string' && pkgIdx && this.d[pkgIdx - 1].proxy.prototype[name]) || false;
   }
