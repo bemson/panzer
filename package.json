@@ -1,9 +1,9 @@
 {
   "name": "Panzer"
-  , "version": "0.2.4"
+  , "version": "0.2.5"
   , "description": "A comprehensive node-tree solution, for smart data."
   , "dependencies" : {
-    "genData": "1.2.x"
+    "genData": "2"
   }
   , "keywords": [
     "tree"
