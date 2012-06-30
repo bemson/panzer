@@ -98,6 +98,25 @@
               dataset[node.previousIndex - 1].nextIndex = node.index;
             }
           }
+          // if not the first node and there are packages...
+          if (parent && PZR.d) {
+            // step through packages of the current PZR backwards (most recent package gets precedence)...
+            PZR.d.reverse().some(function (pkgDef) {
+              var
+                // alias the package definition
+                def = pkgDef.def,
+                // capture the extend key result
+                substituteParent
+              ;
+              // if the definition has a prepNode function and it returns an object...
+              if (typeof def.prepNode == 'function' && typeof (substituteParent = def.prepNode.call(window, value, dataset[0].value)) != 'undefined') {
+                // scan this value as if it were the current node's value
+                flags.parent = substituteParent;
+                // exit loop
+                return true;
+              }
+            });
+          }
         }
       }
     ),
@@ -163,6 +182,20 @@
         nr: n && n instanceof RegExp ? n : 0
       };
     });
+    // if there are panzer packages...
+    if (panzer.d) {
+      // with each package definition in this panzer...
+      panzer.d.forEach(function (pkgDef) {
+        var
+          preprocessResult
+        ;
+        // if there is a pre function in this package's definition and the result is not undefined...
+        if (typeof pkgDef.def.prepTree == 'function' && typeof (preprocessResult = pkgDef.def.prepTree.call(window, rawtree)) != 'undefined') {
+          // set new rawtree value
+          rawtree = preprocessResult;
+        }
+      });
+    }
     // start generating the initial tree
     tree.nodes = genNodes(rawtree);
     // clear PZR reference (for better garbage collection)
