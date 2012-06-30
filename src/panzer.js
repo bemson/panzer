@@ -571,7 +571,7 @@
 
   // expose public Panzer namespcae
   environment.Panzer = {
-    version: '0.2.5',
+    version: '0.2.6',
     create: function () {
       var
         // a panzer platform
