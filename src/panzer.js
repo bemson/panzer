@@ -1,9 +1,9 @@
 /*!
- * Panzer v0.2.4
+ * Panzer v0.2.6
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
- * genData v2.0.0 / Bemi Faison (c) 2012 / MIT (http://github.com/bemson/genData)
+ * genData v2.0.1 / Bemi Faison (c) 2012 / MIT (http://github.com/bemson/genData)
  *
  * Copyright 2012, Bemi Faison
  * Released under the MIT License
