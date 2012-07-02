@@ -531,7 +531,7 @@
             return PanzerGetSuperMethod.call(panzer, this.index, name);
           };
           // set default static members
-          pkgDef.init = pkgDef.attributeKey = pkgDef.invalidKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = 0;
+          pkgDef.init = pkgDef.attributeKey = pkgDef.invalidKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.prepTree = pkgDef.prepNode = 0;
           // define new proxy-model for this package
           function proxyModel() {}
           // chain the existing proxy prototype to the new one
