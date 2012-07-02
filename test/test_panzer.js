@@ -477,6 +477,102 @@ test('.invalidKey', function () {
   equal(pkgInst.nodes.length, 2, 'The .invalidKey function is cached during compilation.');
 });
 
+test('.prepTree', 7, function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    value = {},
+    value2 = {}
+  ;
+  strictEqual(pkgDef.prepTree, 0, 'The default value is 0.');
+  ok(
+    [0, {}, [], /m/, 1, '', 'foo', null, undefined].every(function (param) {
+      pkgDef.prepTree = param;
+      return pkgDef(new Klass(value)).nodes[1].value == value;
+    }),
+    'Set to anything but a function has no effect.'
+  );
+  pkgDef.prepTree = function (arg) {
+    equal(arguments.length, 1, 'The function is passed one argument.');
+    ok(1, 'As a function package.prepTree is executed once per Panzer instance.');
+    strictEqual(arg, value, 'The function is passed the original initialization object.');
+    return value2;
+  };
+  strictEqual(pkgDef(new Klass(value)).nodes[1].value, value2, 'The value returned becomes the value parsed.');
+  pkgDef.prepTree = function () {
+    return value2;
+  };
+  Klass.pkg('b').prepTree = function (arg) {
+    strictEqual(arg, value2, 'Each package-definition alters or returns the value passed to the next package\'s .prepTree function.');
+  };
+  new Klass();
+});
+
+test('.prepNode', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    value = {},
+    value2 = {a: value},
+    value3 = {},
+    cnt = 0,
+    key = 'foo'
+  ;
+  strictEqual(pkgDef.prepNode, 0 , 'The default value is 0.');
+  ok(
+    [0, {}, [], /m/, 1, '', 'foo', null, undefined].every(function (param) {
+      pkgDef.prepNode = param;
+      return pkgDef(new Klass(value)).nodes[1].value == value;
+    }),
+    'Set to anything but a function has no effect.'
+  );
+  pkgDef.prepNode = function () {
+    cnt++;
+  };
+  ok(
+    [0, {}, [], /m/, 1, '', 'foo', null, undefined].every(function (param) {
+      new Klass(param);
+      return !cnt;
+    }),
+    'The .prepNode function does not execute the initialization tree has no child members.'
+  );
+  new Klass({a:1,b:1});
+  equal(cnt, 2, 'Executes once per child member of the initialization object.');
+  pkgDef.prepNode = function (node, tree) {
+    equal(arguments.length, 2, 'The function receives two arguments.');
+    strictEqual(node, value, 'The first argument is the value of the child member.');
+    strictEqual(tree, value2, 'The second argument is the initialization object.');
+  };
+  new Klass(value2);
+  pkgDef.prepNode = 0;
+  cnt = pkgDef(new Klass(value2)).nodes.length;
+  ok(
+    [0, 1, 'foo', true, false, undefined, {}, [], null].every(function (arg) {
+      pkgDef.prepNode = function () {
+        return arg;
+      };
+      return pkgDef(new Klass(value2)).nodes.length === cnt;
+    }),
+    'Returning non-object values or non-member objects does not impact the parsed Panzer instance tree.'
+  );
+  cnt = 0;
+  pkgDef.prepNode = function (node, tree) {
+    if (!cnt++) {
+      return {a: key};
+    }
+  };
+  equal(pkgDef(new Klass(value2)).nodes[3].value, key, 'Children of the returned object are added to the parsed Panzer tree.');
+  cnt = 0;
+  pkgDef.prepNode = function (node, tree) {
+    if (cnt < 2) {
+      cnt++;
+      return value2;
+    }
+  };
+  new Klass(value2);
+  equal(cnt, 2, 'If a returned object has members, they are also processed by .prepNode.');
+});
+
 test('.onBegin', function () {
   var
     Klass = Panzer.create(),
