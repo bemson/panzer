@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.3.0
+ * Panzer v0.3.5
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -51,21 +51,21 @@
           // alias node
           node = this,
           // flag whether this item is a invalid key, only if this is not the first node
-          isInvalidKey = parent && testNodeKey('n', name, value),
-          // flag whether this item is an attribute key, only if this is not the first node
-          isAttributeKey = parent && !isInvalidKey && testNodeKey('a', name, value);
-        // if this node's key is invalid or flagged as an attribute (by one any of the packages)...
-        if (isInvalidKey || isAttributeKey) {
+          isBadKey = parent && testNodeKey('n', name, value),
+          // flag whether this item is a tag key, only if this is not the first node
+          isTagKey = parent && !isBadKey && testNodeKey('a', name, value);
+        // if this node's key is invalid or flagged as a tag (by one any of the packages)...
+        if (isBadKey || isTagKey) {
           // exclude from dataset
           flags.omit = 1;
           // don't scan this value
           flags.scan = 0;
-          // if this item is an attribute...
-          if (isAttributeKey && !isInvalidKey) {
-            // add to the parent's node attributes
-            parent.attributes[name] = value;
+          // if this item is a tag...
+          if (isTagKey && !isBadKey) {
+            // add to the parent's node tags
+            parent.tags[name] = value;
           }
-        } else { // otherwise, when this key is not invalid or an attribute...
+        } else { // otherwise, when this key is not invalid or a tag...
           // set default property values to undefined (presence reduces prototype property lookups)
           node.ctx = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
           // capture index of this item once added
@@ -74,8 +74,8 @@
           node.depth = parent ? parent.depth + 1 : 1; // start depth at 1, since _tree node will be prepended later
           // set name
           node.name = parent ? name : 'PROOT';
-          // init attributes property - holds all attributes of this node
-          node.attributes = {};
+          // init tags property - holds all tags of this node
+          node.tags = {};
           // start or extend parent path
           node.path = parent ? parent.path + name + '/' : '//';
           // init child collection
@@ -166,15 +166,15 @@
     // with each package...
     panzer.d.forEach(function (pkgDef) {
       var
-        // shorthand for attribute key member
-        a = pkgDef.def.attributeKey,
+        // shorthand for tag key member
+        a = pkgDef.def.tagKey,
         // shorthand for invalid key member
-        n = pkgDef.def.invalidKey;
+        n = pkgDef.def.badKey;
       // cache node key testers for faster parsing
       pkgDef.c = {
-        // capture when the attribute test is a function
+        // capture when the tag test is a function
         af: typeof a === 'function' ? a : 0,
-        // capture when the attribute test is a regular-expression
+        // capture when the tag test is a regular-expression
         ar: a && a instanceof RegExp ? a : 0,
         // capture when the invalid test is a function
         nf: typeof n === 'function' ? n : 0,
@@ -531,7 +531,7 @@
             return PanzerGetSuperMethod.call(panzer, this.index, name);
           };
           // set default static members
-          pkgDef.init = pkgDef.attributeKey = pkgDef.invalidKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.prepTree = pkgDef.prepNode = 0;
+          pkgDef.init = pkgDef.tagKey = pkgDef.badKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.prepTree = pkgDef.prepNode = 0;
           // define new proxy-model for this package
           function proxyModel() {}
           // chain the existing proxy prototype to the new one

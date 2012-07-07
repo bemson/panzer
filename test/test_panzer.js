@@ -144,7 +144,7 @@ test('Nodes', function () {
     pkgInst = pkgDef(proxy),
     node = pkgInst.nodes[0];
   equal(pkgDef(new Klass()).nodes.length, 2, 'Even when a Panzer instance tree is not an object, two nodes exist.');
-  'name|value|index|depth|attributes|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex|childIndex'.split('|')
+  'name|value|index|depth|tags|path|children|parentIndex|previousIndex|nextIndex|firstChildIndex|lastChildIndex|childIndex'.split('|')
     .forEach(function (mbr) {
       ok(node.hasOwnProperty(mbr), 'Has a "' + mbr + '" member.');
     });
@@ -153,7 +153,7 @@ test('Nodes', function () {
       equal(pkgInst.nodes[idx].name, name, 'By default, the name member of the node at index ' + idx + ' is "' + name + '".');
     });
   strictEqual(node.previousIndex, undefined, 'Unset .xxxIndex member properties are undefined.');
-  ok(pkgInst.nodes[1].attributes === pkgDef2(proxy).nodes[1].attributes, 'Nodes at the same index, from different package-instances, reference the same .attributes object.');
+  ok(pkgInst.nodes[1].tags === pkgDef2(proxy).nodes[1].tags, 'Nodes at the same index, from different package-instances, reference the same .tags object.');
 });
 
 module('Tank API');
@@ -353,7 +353,7 @@ test('.init', function () {
   new Klass();
 });
 
-test('.attributeKey', function () {
+test('.tagKey', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -366,25 +366,25 @@ test('.attributeKey', function () {
     allAsNodes = 6,
     randValue = Math.random(),
     pkgInst, val, scope, args;
-  strictEqual(pkgDef.attributeKey, 0, 'The default value is 0.');
+  strictEqual(pkgDef.tagKey, 0, 'The default value is 0.');
   equal(pkgDef(new Klass(treeParam)).nodes.length, allAsNodes, 'By default, all keys become nodes.');
   ok(
     [null, undefined, 1, '', {}, []].every(function (value) {
-      pkgDef.attributeKey = value;
+      pkgDef.tagKey = value;
       return pkgDef(new Klass(treeParam)).nodes.length === allAsNodes;
     }),
     'All keys become nodes when set to anything besides a function or regular expression.'
   );
-  pkgDef.attributeKey = /\d/;
+  pkgDef.tagKey = /\d/;
   equal(pkgDef(new Klass(treeParam)).nodes.length, allAsNodes, 'A non-matching regular expression allows all keys to become nodes.');
-  pkgDef.attributeKey = /^_/;
+  pkgDef.tagKey = /^_/;
   pkgInst = pkgDef(new Klass(treeParam));
   equal(pkgInst.nodes.length, allAsNodes - 2, 'A matching regular expression reduces the number of keys that become nodes.');
   ok(
-    pkgInst.nodes[1].attributes.hasOwnProperty('_foo') && pkgInst.nodes[1].attributes.hasOwnProperty('_bar'),
-    'Keys that match a regular expression, become attributes of their parent node.'
+    pkgInst.nodes[1].tags.hasOwnProperty('_foo') && pkgInst.nodes[1].tags.hasOwnProperty('_bar'),
+    'Keys that match a regular expression, become tags of their parent node.'
   );
-  pkgDef.attributeKey = function (name, value) {
+  pkgDef.tagKey = function (name, value) {
     scope = this;
     args = arguments;
   };
@@ -394,7 +394,7 @@ test('.attributeKey', function () {
   equal(typeof args[0], 'string', 'The first argument given to functions is the key name, a string.');
   equal(pkgInst.nodes.length, 3, 'All keys become nodes when a function returns nothing or a falsy value.');
   val = 0;
-  pkgDef.attributeKey = function () {
+  pkgDef.tagKey = function () {
     val = 1;
   };
   new Klass();
@@ -402,24 +402,24 @@ test('.attributeKey', function () {
   new Klass('');
   new Klass(1);
   equal(val, 0, 'Functions are not fired when there are no keys to parse.');
-  pkgDef.attributeKey = function (name, value) {
+  pkgDef.tagKey = function (name, value) {
     return value < 3;
   };
   pkgInst = pkgDef(new Klass(treeParam));
   equal(pkgInst.nodes.length, allAsNodes - 2, 'When a function returns true, fewer keys are parsed into nodes.');
   ok(
-    pkgInst.nodes[1].attributes.hasOwnProperty('foo') && pkgInst.nodes[1].attributes.hasOwnProperty('bar'),
-    'When a function returns true, a key becomes an attribute of the node parsed from the lexical context.'
+    pkgInst.nodes[1].tags.hasOwnProperty('foo') && pkgInst.nodes[1].tags.hasOwnProperty('bar'),
+    'When a function returns true, a key becomes a tag of the node parsed from the lexical context.'
   );
-  pkgDef.attributeKey = function () {
-    pkgDef.attributeKey = 0;
+  pkgDef.tagKey = function () {
+    pkgDef.tagKey = 0;
     return true;
   };
   pkgInst = pkgDef(new Klass(treeParam));
-  equal(pkgInst.nodes.length, 2, 'The .attributeKey function is cached during compilation.');
+  equal(pkgInst.nodes.length, 2, 'The .tagKey function is cached during compilation.');
 });
 
-test('.invalidKey', function () {
+test('.badKey', function () {
   var
     Klass = Panzer.create(),
     pkgDef = Klass.pkg('a'),
@@ -432,21 +432,21 @@ test('.invalidKey', function () {
     allAsNodes = 6,
     randValue = Math.random(),
     pkgInst, val, scope, args;
-  strictEqual(pkgDef.invalidKey, 0, 'The default value is 0.');
+  strictEqual(pkgDef.badKey, 0, 'The default value is 0.');
   equal(pkgDef(new Klass(treeParam)).nodes.length, allAsNodes, 'By default, all keys become nodes.');
   ok(
     [null, undefined, 1, '', {}, []].every(function (value) {
-      pkgDef.invalidKey = value;
+      pkgDef.badKey = value;
       return pkgDef(new Klass(treeParam)).nodes.length === allAsNodes;
     }),
     'All keys become nodes when set to anything besides a function or regular expression.'
   );
-  pkgDef.invalidKey = /\d/;
+  pkgDef.badKey = /\d/;
   equal(pkgDef(new Klass(treeParam)).nodes.length, allAsNodes, 'A non-matching regular expression allows all keys to become nodes.');
-  pkgDef.invalidKey = /^_/;
+  pkgDef.badKey = /^_/;
   pkgInst = pkgDef(new Klass(treeParam));
   equal(pkgInst.nodes.length, allAsNodes - 2, 'A matching regular expression reduces the number of keys that become nodes.');
-  pkgDef.invalidKey = function (name, value) {
+  pkgDef.badKey = function (name, value) {
     scope = this;
     args = arguments;
   };
@@ -456,7 +456,7 @@ test('.invalidKey', function () {
   equal(typeof args[0], 'string', 'The first argument given to functions is the key name, a string.');
   equal(pkgInst.nodes.length, 3, 'All keys become nodes when a function returns nothing or a falsy value.');
   val = 0;
-  pkgDef.invalidKey = function () {
+  pkgDef.badKey = function () {
     val = 1;
   };
   new Klass();
@@ -464,17 +464,17 @@ test('.invalidKey', function () {
   new Klass('');
   new Klass(1);
   equal(val, 0, 'Functions are not fired when there are no keys to parse.');
-  pkgDef.invalidKey = function (name, value) {
+  pkgDef.badKey = function (name, value) {
     return value < 3;
   };
   pkgInst = pkgDef(new Klass(treeParam));
   equal(pkgInst.nodes.length, allAsNodes - 2, 'When a function returns true, fewer keys are parsed into nodes.');
-  pkgDef.invalidKey = function () {
-    pkgDef.invalidKey = 0;
+  pkgDef.badKey = function () {
+    pkgDef.badKey = 0;
     return true;
   };
   pkgInst = pkgDef(new Klass(treeParam));
-  equal(pkgInst.nodes.length, 2, 'The .invalidKey function is cached during compilation.');
+  equal(pkgInst.nodes.length, 2, 'The .badKey function is cached during compilation.');
 });
 
 test('.prepTree', 7, function () {
@@ -685,7 +685,7 @@ test('Key Parsing', function () {
       to: {
         parse: 'in to',
         nodes: "n'",
-        attri: '-butes'
+        ta: '-gs'
       },
       based: 'on',
       "it's": 'keys',
@@ -693,38 +693,38 @@ test('Key Parsing', function () {
     },
     val = '',
     proxy;
-  pkgDef1.attributeKey = pkgDef2.invalidKey = /./;
-  equal(pkgDef1(new Klass(tree)).nodes.length, 2, 'Keys matching an .invalidKey test, can not become attributes.');
-  pkgDef1.invalidKey = pkgDef1.attributeKey = 0;
-  pkgDef2.invalidKey = function () {
+  pkgDef1.tagKey = pkgDef2.badKey = /./;
+  equal(pkgDef1(new Klass(tree)).nodes.length, 2, 'Keys matching an .badKey test, can not become tags.');
+  pkgDef1.badKey = pkgDef1.tagKey = 0;
+  pkgDef2.badKey = function () {
     val += 'a';
     return false;
   };
-  pkgDef2.attributeKey = function () {
+  pkgDef2.tagKey = function () {
     val += 'b';
     return false;
   };
   new Klass(tree);
-  equal(val.substr(0,2), 'ab', 'Keys are matched with the .invalidKey member before the .attributeKey member.');
+  equal(val.substr(0,2), 'ab', 'Keys are matched with the .badKey member before the .tagKey member.');
   val = '';
-  pkgDef2.invalidKey = /./;
+  pkgDef2.badKey = /./;
   new Klass(tree);
-  equal(val, '', 'Per key, when an .invalidKey test matches, the .attributeKey test is skipped.');
-  pkgDef2.invalidKey = 0;
-  pkgDef2.attributeKey = function () {
+  equal(val, '', 'Per key, when an .badKey test matches, the .tagKey test is skipped.');
+  pkgDef2.badKey = 0;
+  pkgDef2.tagKey = function () {
     return true;
   };
-  pkgDef1.attributeKey = function () {
+  pkgDef1.tagKey = function () {
     return false;
   };
-  equal(pkgDef2(new Klass(tree)).nodes.length, 2, 'Matching .attributeKey and .invalidKey tests overrule failing ones (from other packages).');
-  pkgDef2.attributeKey = 0;
-  pkgDef1.attributeKey = /parse|nodes|attri/;
-  deepEqual(pkgDef1(new Klass(tree)).nodes[3].attributes, tree.to, 'Keys passing the .attributeKey test, become attributes of their container node.');
-  pkgDef2.invalidKey = function (name, value) {
+  equal(pkgDef2(new Klass(tree)).nodes.length, 2, 'Matching .tagKey and .badKey tests overrule failing ones (from other packages).');
+  pkgDef2.tagKey = 0;
+  pkgDef1.tagKey = /parse|nodes|ta/;
+  deepEqual(pkgDef1(new Klass(tree)).nodes[3].tags, tree.to, 'Keys passing the .tagKey test, become tags to their container node.');
+  pkgDef2.badKey = function (name, value) {
     return /^\-/.test(value);
   };
-  equal(JSON.stringify(pkgDef2(new Klass(tree)).nodes), JSON.stringify(pkgDef1(new Klass(tree)).nodes), 'Each package receives with the same tree, composited from all .attributeKey and .invalidKey tests.');
+  equal(JSON.stringify(pkgDef2(new Klass(tree)).nodes), JSON.stringify(pkgDef1(new Klass(tree)).nodes), 'Each package receives with the same tree, composited from all .tagKey and .badKey tests.');
 });
 
 test('Package-instance', function () {
