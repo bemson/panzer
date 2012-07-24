@@ -310,7 +310,7 @@ test('.init', function () {
     expandoVal = {},
     nodeMbrName = 'foo',
     val = 0,
-    pkgInst, initScope;
+    pkgInst, initScope, args;
   equal(pkgDef.init, 0, 'Default value is 0.');
   pkgDef.init = function () {
     initScope = this;
