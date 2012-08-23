@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/bemson/Panzer.png)](http://travis-ci.org/bemson/Panzer)
 # Panzer
 
 (7/6/12)
