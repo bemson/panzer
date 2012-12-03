@@ -538,7 +538,6 @@
       ;
       // if this instance is ready...
       if (this.ret) {
-        console.log('firing (' + [].slice.call(packageCallbackArgs).join(', ') + ') node ' + this.tank.id + '#' + this.current.index);
         // with each package instance...
         this.pkgs.forEach(function (pkgEntry) {
           var
