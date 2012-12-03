@@ -69,7 +69,7 @@
           }
         } else { // otherwise, when this key is not invalid or a tag...
           // set default property values to undefined (presence reduces prototype property lookups)
-          node.ctx = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
+          node.ctx = node.lte = node.parentIndex = node.previousIndex = node.nextIndex = node.firstChildIndex = node.lastChildIndex = node.childIndex = undefined;
           // capture index of this item once added
           node.index = dataset.length + 1;
           // capture depth
@@ -341,25 +341,30 @@
       var
         // alias self
         tree = this,
-        // alias nodes (for minification & performance)
+        // alias nodes
         nodes = tree.nodes,
-        // alias tank (for minification & performance)
+        // alias tank
         tank = tree.tank,
         // direction of traversal movement
         dir,
         // the number of traversal events fired
         traversals = 0,
-        // alias the current node (for minification & performance)
+        // alias the current node
         curNode = tree.current,
-        // flag when the nextInt is an event (when 0) or node index (when 1)
-        nextIsEvent = 0,
-        // integer representing the node index or event type
-        nextInt = 0,
+        // the next phase to traverse (-1 indicates none)
+        nextPhase = -1,
+        // the next node to target (-1 indicates none)
+        nextNodeIndex = -1,
+        // last targeted node index
+        lastTargetIndex,
+        // track when a node is engaged
+        nodeEngaged,
         // flag when we've fired the end event
-        firedEnd;
+        firedEnd
+      ;
       // if already looping...
       if (tree.loop) {
-        // flag true if there is a current target
+        // flag true when there is a current target
         return !!tree.target;
       }
       // reset the posts array
@@ -367,99 +372,145 @@
       // flag that this tree is looping
       tree.loop = 1;
       // fire begin event
-      tree.fire('Begin');
+      tree.fire('begin');
       // while looping...
       while (tree.loop) {
         // if there is a target and we haven't stopped...
         if (tree.target && !tree.stop) {
           // reset firedEnd flag
           firedEnd = 0;
-          // get traversal direction
-          dir = tree.target.index - curNode.index;
-          // if going forwards or backwards...
-          if (dir) {
-            // if going forward on the _tree or tree node, or the target path contains the current path...
-            if ((dir > 0 && curNode.index < 2) || !tree.target.path.indexOf(curNode.path)) {
-              // if already in context...
-              if (curNode.ctx) {
-                // flag that we're switching nodes
-                nextIsEvent = 0;
-                // target the first child
-                nextInt = curNode.firstChildIndex;
-              } else { // otherwise, if not in context...
-                // flag that we're doing an event
-                nextIsEvent = 1;
-                // set to in event
-                nextInt = 1;
-                // flag that we're in the current node
-                curNode.ctx = 1;
-              }
-            } else { // otherwise, if the target path is not in the current path...
-              // if in the context of the current node...
-              if (curNode.ctx) {
-                // flag that we're doing an event
-                nextIsEvent = 1;
-                // set to out event
-                nextInt = 2;
-                // flag that we're out of the current node
-                curNode.ctx = 0;
-              } else { // otherwise, when out of this node...
-                // if the current node's parent is an ancestor of the target node...
-                if (tree.target.path.indexOf(nodes[curNode.parentIndex].path)) {
-                  // set direction to backwards
-                  dir = -1;
+          // if the last known target has changed or there is no next phase or node...
+          if (lastTargetIndex != tree.target.index || !(~nextPhase | ~nextNodeIndex)) {
+            // reset the nextPhase and nextNodeIndex flags
+            nextPhase = nextNodeIndex = -1;
+            // capture current target index
+            lastTargetIndex = tree.target.index;
+            // get traversal direction
+            dir = lastTargetIndex - curNode.index;
+            // if going forwards or backwards...
+            if (dir) {
+              // if going inside the current node...
+              if ((dir > 0 && curNode.index < 2) || !tree.target.path.indexOf(curNode.path)) {
+                // if already in the node...
+                if (curNode.ctx) {
+                  // identify the next node
+                  nextNodeIndex = curNode.firstChildIndex;
+                } else { // otherwise, if not in this node...
+                  // identify the next traversal phase (in)
+                  nextPhase = 1;
                 }
-                // predict next event based on the direction
-                nextInt = dir < 0 ? 4 : 3;
-                // if the last event was out, matches the calculated one, or shows an over occurring after bover (or vice versa)...
-                if (curNode.lastEvent === 2 || curNode.lastEvent === nextInt || curNode.lastEvent + nextInt === 7) {
-                  // flag that we're changing nodes
-                  nextIsEvent = 0;
-                  // go forward, backward, or up based on direction
-                  nextInt = dir > 0 ? curNode.nextIndex : (curNode.previousIndex || curNode.parentIndex);
-                } else { // otherwise, when the last event was not out and won't be repeated...
-                  // flag that we're doing an event (the one previously calculated)
-                  nextIsEvent = 1;
+              } else { // otherwise, when going beyond this node (forward or backwards)....
+                // if currently within this node...
+                if (curNode.ctx) {
+                  // identify the next traversal phase (out)
+                  nextPhase = 2;
+                } else { // otherwise, when out of this node...
+                  // if the current node's parent is not an ancestor of the target node...
+                  if (tree.target.path.indexOf(nodes[curNode.parentIndex].path)) {
+                    // go up node tree
+                    dir = -1;
+                  }
+                  // if going down the tree...
+                  if (dir > 0) {
+                    // if the last event was over or this node was exited...
+                    if (curNode.lte == 3 || curNode.lte == 2) {
+                      // go to sibling
+                      nextNodeIndex = curNode.nextIndex;
+                    } else {
+                      // go over
+                      nextPhase = 3;
+                    }
+                  } else { // when going up the tree...
+                    // if the last event was bover or this node was exited...
+                    if (curNode.lte == 4 || curNode.lte == 2) {
+                      // go to sibling or parent node
+                      nextNodeIndex = curNode.previousIndex || curNode.parentIndex;
+                    } else {
+                      // go bover
+                      nextPhase = 4;
+                    }
+                  }
+                }
+              }
+            } else { // otherwise, when on the target node...
+              // set event to on or in, based on the node's current context
+              nextPhase = curNode.ctx ? 0 : 1;
+            }
+          } else { // otherwise, when the target is the same and there is a phase or node to navigate...
+            // if changing nodes or traversing a node that is not engaged...
+            if (~nextNodeIndex || !nodeEngaged) {
+              // if this current node has been engaged...
+              if (nodeEngaged) {
+                // release the current node by resetting engaged flag
+                nodeEngaged = 0;
+                // fire release event
+                tree.fire('release');
+              } else { // otherwise, when the current node has been released...
+                // if changing nodes...
+                if (~nextNodeIndex) {
+                  // reset last traversal event of the current node
+                  curNode.lte = 0;
+                  // change the current node
+                  curNode = tree.current = nodes[nextNodeIndex];
+                  // update tank
+                  tank.currentIndex = nextNodeIndex;
+                  // reset the nextNodeIndex flag
+                  nextNodeIndex = -1;
+                }
+                // engage this node
+                nodeEngaged = 1;
+                // fire engage event
+                tree.fire('engage');
+              }
+            } else { // otherwise, when traversing a node or already engaged...
+              // if out of context and traversing in or out...
+              if (!curNode.ctx && (nextPhase == 1 || nextPhase == 2)) {
+                // if traversing out...
+                if (nextPhase == 2) {
+                  // clear target phase
+                  nextPhase = -1;
+                } else { // otherwise, when traversing in...
+                  // update node context
+                  curNode.ctx = 1;
+                }
+                // fire scope in/out event
+                tree.fire('scope', curNode.ctx);
+              } else { // otherwise, if already scoped when properly scoped...
+                // track this traversal event
+                curNode.lte = nextPhase;
+                // tick traversal event count
+                traversals++;
+                // if traversing on a node...
+                if (!nextPhase) {
+                    // clear the target
+                    tree.target = 0;
+                    // update tank
+                    tank.targetIndex = -1;
+                }
+                // fire traversal event
+                tree.fire('traverse', nextPhase);
+                // if traversed out of a node...
+                if (nextPhase == 2) {
+                  // change node context
+                  curNode.ctx = 0;
+                } else { // otherwise, for all other traversals...
+                  // clear target phase now
+                  nextPhase = -1;
                 }
               }
             }
-          } else { // otherwise, when on the target node...
-            // flag that we're doing an event
-            nextIsEvent = 1;
-            // set event to on or in, based on the current context
-            nextInt = curNode.ctx ? 0 : 1;
-            // if already in context...
-            if (curNode.ctx) {
-              // clear internal target
-              tree.target = 0;
-              // clear tank target (set to negative one)
-              tank.targetIndex = -1;
-            }
-            // set context to in
-            curNode.ctx = 1;
           }
-          // if doing an event...
-          if (nextIsEvent) {
-            // capture last event
-            curNode.lastEvent = nextInt;
-            // tick traversal event count
-            traversals++;
-            // fire traverse event with the resolved next target
-            tree.fire('Traverse', [nextInt]);
-          } else { // otherwise, when changing the current node...
-            // reset lastEvent flag from the current node
-            curNode.lastEvent = 0;
-            // set internal current node
-            curNode = tree.current = nodes[nextInt];
-            // set tank target
-            tank.currentIndex = nextInt;
-          }
-        } else if (!firedEnd && (tree.stop || !tree.target)) { // or, when stopped and we did not fire the stop event and we've stopped...
+        } else if (nodeEngaged) { // or, when the current node is (still) engaged...
+          // release the current node
+          nodeEngaged = 0;
+          // fire release event
+          tree.fire('release');
+        } else if (!firedEnd) { // or, when the end event has not fired...
           // note that we've fired the end event
           firedEnd = 1;
           // fire end event
-          tree.fire('End');
-        } else { // (otherwise), when none of these conditions are met...
+          tree.fire('end');
+        } else { // otherwise, when the end event has fired...
           // flag that we're done looping
           tree.loop = 0;
         }
@@ -533,7 +584,7 @@
             return PanzerGetSuperMethod.call(panzer, this.index, name);
           };
           // set default static members
-          pkgDef.init = pkgDef.tagKey = pkgDef.badKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.prepTree = pkgDef.prepNode = 0;
+          pkgDef.init = pkgDef.tagKey = pkgDef.badKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.onEngage = pkgDef.onRelease= pkgDef.onScope = pkgDef.prepTree = pkgDef.prepNode = 0;
           // define new proxy-model for this package
           function proxyModel() {}
           // chain the existing proxy prototype to the new one
