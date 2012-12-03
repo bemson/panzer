@@ -476,30 +476,30 @@
       return traversals;
     },
     // fire package event
-    fire: function (evtName, args) {
+    fire: function (eventName) {
       var
+        // resolve callback in packages
+        packageCallbackName = 'on' + eventName.charAt(0).toUpperCase() + eventName.substr(1),
+        // alias arguments for callbacks
+        packageCallbackArgs = arguments,
         // alias for closures
-        panzer = this.panzer;
-      // if this instance is not ready...
-      if (!this.ret) {
-        // exit the function
-        return;
+        panzer = this.panzer
+      ;
+      // if this instance is ready...
+      if (this.ret) {
+        console.log('firing (' + [].slice.call(packageCallbackArgs).join(', ') + ') node ' + this.tank.id + '#' + this.current.index);
+        // with each package instance...
+        this.pkgs.forEach(function (pkgEntry) {
+          var
+            // get event callback from the corresponding package definition
+            packageCallback = panzer.d[panzer.i[pkgEntry.name]].def[packageCallbackName];
+          // if the callback is a function...
+          if (typeof packageCallback == 'function') {
+            // execute in scope of the package-instance, with the resolved arguments
+            packageCallback.apply(pkgEntry.inst, packageCallbackArgs);
+          }
+        });
       }
-      // use args or array - assumes args is an array
-      args = args || [];
-      // prepend lowercasse form of the event name to arguments, so callbacks can identify the event
-      args.unshift(evtName.toLowerCase());
-      // with each package instance...
-      this.pkgs.forEach(function (pkgEntry) {
-        var
-          // get event callback from the corresponding package definition
-          callback = panzer.d[panzer.i[pkgEntry.name]].def['on' + evtName];
-        // if the callback is a function...
-        if (typeof callback === 'function') {
-          // execute with built args, in scope of the package instance
-          callback.apply(pkgEntry.inst, args);
-        }
-      });
     }
   };
 
