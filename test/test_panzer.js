@@ -212,13 +212,17 @@ test('.id', function () {
     pkgDef2 = Klass.pkg('b'),
     pkgInst = pkgDef(new Klass()),
     tank = pkgInst.tank;
-  equal(typeof tank.id, 'number', 'Has the .id member which is a number.');
-  equal(tank.id, 0, 'The .id value for the first Panzer instance is 0.');
+  equal(typeof tank.id, 'number', 'The .id member is a number.');
+  strictEqual(tank.id, pkgInst.pkgs.b.tank.id, 'Two packages of the same Panzer instance, have the same tank id.');
   ok(
-    [1,2,3].every(function (id) {
-      return pkgDef(new Klass()).tank.id === id;
+    [1,2,3].every(function (baseTankIncrement) {
+      var
+        Klass = Panzer.create(),
+        pkgDef = Klass.pkg('a')
+      ;
+      return pkgDef(new Klass()).tank.id === tank.id + baseTankIncrement;
     }),
-    'The .id member increments by one, after each Package instance.'
+    'Each Panzer instance has an incremented tank id, regardless of the base Panzer class.'
   );
 });
 

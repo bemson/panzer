@@ -21,6 +21,8 @@
     genData = (inCommonJsEnv ? require('genData') : window).genData,
     // the current panzer platform - used by shared closures calling testNodeKey
     PZR,
+    // the number of tanks created
+    tankCount = 0,
     // the cached result of ({}).toString
     toStringResult = ({}).toString(),
     // tests the name and/or value of a node, against each package definition's targeted handler
@@ -221,8 +223,8 @@
     tree.nodes[0].firstChildIndex = tree.nodes[0].lastChildIndex = 1;
     // define tree package-instance api - all package instances control the tree via these members
     tree.tank = {
-      // capture and increment the number of trees created on this panzer
-      id: panzer.c++,
+      // increment and use the number of tanks created, as this instance's id
+      id: tankCount++,
       // index of the active node
       currentIndex: 0,
       // index of the target node (-1 indicates idle or at rest)
@@ -576,8 +578,6 @@
       var
         // a panzer platform
         panzer = {
-          // number of trees created with this panzer
-          c: 0,
           // packages list
           d: [],
           // packages index
