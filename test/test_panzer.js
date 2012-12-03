@@ -902,26 +902,31 @@ test('Routing', 4, function () {
   tank.go(tgtIndex);
   ok(tank.currentIndex !== tgtIndex && tank.currentIndex === finalIndex, 'The originally targeted node was not reached due to routing navigation from an event callback.');
   pkgDef.onBegin = 0;
+  val = '';
   pkgDef.onTraverse = function (name, type) {
-    switch (type) {
-      case 2 : // out
-        tank.go(1);
-        val++;
-        break;
-      case 3 : // over
-        tank.go(1);
-        val++;
-        break;
-      case 4: // bover
-        tank.go(3);
-        val++;
+    if (type == 3)  {
+      val += 'a';
+      tank.go(1);
+    } else if (type == 4) {
+      val += 'b';
+      tank.stop();
     }
   };
   tank.go(3);
-  equal(val, 1, 'Redirecting in the opposite direction, during an "over" event, does not trigger a "bover" event.');
-  tank.go(2);
+  equal(val, 'ab', 'Redirecting in the opposite direction, during an "over" event, triggers a "bover" event.');
+  pkgDef.onTraverse = val = '';
   tank.go(3);
-  equal(val, 2, 'Redirecting in the opposite direction, during a "bover" event, does not trigger an "over" event.');
+  pkgDef.onTraverse = function (name, type) {
+    if (type == 4)  {
+      val += 'a';
+      tank.go(3);
+    } else if (type == 3) {
+      val += 'b';
+      tank.stop();
+    }
+  };
+  tank.go(1);
+  equal(val, 'ab', 'Redirecting in the opposite direction, during a "bover" event, triggers an "over" event.');
 });
 
 test('Postbacks', 3, function () {
