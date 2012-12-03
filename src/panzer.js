@@ -441,10 +441,8 @@
             if (~nextNodeIndex || !nodeEngaged) {
               // if this current node has been engaged...
               if (nodeEngaged) {
-                // release the current node by resetting engaged flag
-                nodeEngaged = 0;
-                // fire release event
-                tree.fire('release');
+                // fire release event and release this node
+                tree.fire('target', (nodeEngaged = 0));
               } else { // otherwise, when the current node has been released...
                 // if changing nodes...
                 if (~nextNodeIndex) {
@@ -457,10 +455,8 @@
                   // reset the nextNodeIndex flag
                   nextNodeIndex = -1;
                 }
-                // engage this node
-                nodeEngaged = 1;
-                // fire engage event
-                tree.fire('engage');
+                // fire engage event and engage node
+                tree.fire('target', (nodeEngaged = 1));
               }
             } else { // otherwise, when traversing a node or already engaged...
               // if out of context and traversing in or out...
@@ -501,10 +497,8 @@
             }
           }
         } else if (nodeEngaged) { // or, when the current node is (still) engaged...
-          // release the current node
-          nodeEngaged = 0;
-          // fire release event
-          tree.fire('release');
+          // fire release event and release node
+          tree.fire('target', (nodeEngaged = 0));
         } else if (!firedEnd) { // or, when the end event has not fired...
           // note that we've fired the end event
           firedEnd = 1;
@@ -583,7 +577,7 @@
             return PanzerGetSuperMethod.call(panzer, this.index, name);
           };
           // set default static members
-          pkgDef.init = pkgDef.tagKey = pkgDef.badKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.onEngage = pkgDef.onRelease= pkgDef.onScope = pkgDef.prepTree = pkgDef.prepNode = 0;
+          pkgDef.init = pkgDef.tagKey = pkgDef.badKey = pkgDef.onBegin = pkgDef.onEnd = pkgDef.onTraverse = pkgDef.onTarget = pkgDef.onScope = pkgDef.prepTree = pkgDef.prepNode = 0;
           // define new proxy-model for this package
           function proxyModel() {}
           // chain the existing proxy prototype to the new one
