@@ -4,3 +4,6 @@
 [submodule "src/genData"]
 	path = src/genData
 	url = git://github.com/bemson/genData.git
+[submodule "test/requirejs"]
+	path = test/requirejs
+	url = git://github.com/jrburke/requirejs.git
