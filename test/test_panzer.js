@@ -577,6 +577,29 @@ test('.prepNode', function () {
   equal(cnt, 2, 'If a returned object has members, they are also processed by .prepNode.');
 });
 
+test('.getSuper()', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDefA = Klass.pkg('a'),
+    pkgDefB = Klass.pkg('b'),
+    pkgDefC = Klass.pkg('c'),
+    someFnc = function () {};
+  equal(typeof pkgDefA.getSuper, 'function', 'This is a function.');
+  ok(
+    [1,'', 'foo', 'bar', undefined, null, {}, function () {}, []].every(
+      function (arg) {
+        return pkgDefB.getSuper(arg) === false;
+      }
+    ),
+    'Returns false when given a non/empty string argument.'
+  );
+  pkgDefA.proxy.foo = someFnc;
+  pkgDefC.proxy.foo = function () {};
+  equal(pkgDefC.getSuper('foo'), pkgDefA.proxy.foo, 'Returns the proxy method defined in earlier packages.');
+});
+
+// module('Tank Events');
+
 test('.onBegin', function () {
   var
     Klass = Panzer.create(),
@@ -599,6 +622,109 @@ test('.onBegin', function () {
   tank.go(0);
 });
 
+test('.onNode', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([1])),
+    tank = pkgInst.tank,
+    tick = 0,
+    initialIndex = tank.currentIndex
+  ;
+  strictEqual(pkgDef.onNode, 0, 'The default value is 0.');
+  pkgDef.onNode = function  (evtName, curIdx, lastIdx) {
+    ok(1, 'As a function, .onNode is called when tank switches nodes.');
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 3, 'Passed three arguments');
+    equal(arguments[0], 'node', 'The first argument is the string "node".');
+    equal(curIdx, tank.currentIndex, 'The second argument is the current node index.');
+    equal(lastIdx, initialIndex, 'The thid argument is the previous node index.');
+  };
+  tank.go(1);
+  pkgDef.onNode = 0;
+  tank.go(0);
+  pkgDef.onNode = function () {
+    tick++;
+  };
+  tank.go(2);
+  equal(tick, 2, '.onNode is called once per node navigated.');
+});
+
+test('.onEngage', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([1])),
+    tank = pkgInst.tank,
+    tick = 0
+  ;
+  strictEqual(pkgDef.onEngage, 0, 'The default value is 0.');
+  pkgDef.onEngage = function  () {
+    ok(1, 'As a function, .onEngage is called when tank begins handling a node.');
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 1, 'Passed one argument');
+    equal(arguments[0], 'engage', 'The first argument is the string "engage".');
+  };
+  tank.go(0);
+  pkgDef.onEngage = function () {
+    tick++;
+  };
+  tank.go(pkgInst.nodes.length - 1);
+  equal(tick, pkgInst.nodes.length - 1, '.onEngage is called for each traversed node.');
+});
+
+test('.onRelease', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([1])),
+    tank = pkgInst.tank,
+    tick = 0
+  ;
+  strictEqual(pkgDef.onRelease, 0, 'The default value is 0.');
+  pkgDef.onRelease = function  () {
+    ok(1, 'As a function, .onRelease is called when tank stops handling a node.');
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 1, 'Passed one argument');
+    equal(arguments[0], 'release', 'The first argument is the string "release".');
+  };
+  tank.go(0);
+  pkgDef.onRelease = function () {
+    tick++;
+  };
+  tank.go(pkgInst.nodes.length - 1);
+  equal(tick, pkgInst.nodes.length - 1, '.onRelease is called for each node.');
+});
+
+test('.onScope', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass([1, 2, 3])),
+    tank = pkgInst.tank,
+    tick = 0
+  ;
+  strictEqual(pkgDef.onScope, 0, 'The default value is 0.');
+  pkgDef.onScope = function  () {
+    ok(1, 'As a function, .onScope is called when the tank enters a node.');
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 2, 'Passed two arguments');
+    equal(arguments[0], 'scope', 'The first argument is the string "scope".');
+    strictEqual(arguments[1], 1, 'When entering a node, the second argument is 1');
+  };
+  tank.go(1);
+  pkgDef.onScope = function () {
+    strictEqual(arguments[1], 0, 'When exiting a node, the second argument is 0');
+  };
+  tank.go(0);
+  pkgDef.onScope = function () {
+    tick++;
+  };
+  tank.go(4);
+  tank.go(1);
+  equal(tick, 3, '.onScope is not called when bypassing a node - in either direction');
+});
+
 test('.onTraverse', function () {
   var
     Klass = Panzer.create(),
@@ -608,7 +734,7 @@ test('.onTraverse', function () {
     evtTypes = [2, 4, 1, 3, 1, 0],
     val = 0,
     scope, args;
-  equal(pkgDef.onTraverse, 0, 'The default value is 0.');
+  strictEqual(pkgDef.onTraverse, 0, 'The default value is 0.');
   pkgDef.onTraverse = function () {
     val++;
   };
@@ -632,6 +758,95 @@ test('.onTraverse', function () {
   equal(val, 1, 'During navigation, the traversal types 0, 1, 2, 3, and 4 occur in the expected order.');
 });
 
+test('.onTraversing', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank,
+    tick = 0
+  ;
+  strictEqual(pkgDef.onTraversing, 0, 'The default value is 0.');
+  pkgDef.onTraverse = function () {
+    tick++;
+    tank.stop();
+  };
+  pkgDef.onTraversing = function () {
+    equal(tick, 1, 'As a function, .onTraversing is called when the tank resumes traversing a node.');
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 2, 'Two arguments are passed.');
+    equal(arguments[0], 'traversing', 'The first argument is the "traversing" string, the event name.');
+    equal(typeof arguments[1], 'number', 'The second argument is the traversal type, a number.');
+  };
+  tank.go(0);
+  tank.go(0);
+  pkgDef.onTraverse = pkgDef.onTraversing = tick = 0;
+  tank.go(0);
+  pkgDef.onTraverse = function () {
+    tank.stop();
+  };
+  pkgDef.onTraversing = function () {
+    tick++;
+    tank.stop();
+  };
+  tank.go(0);
+  tank.go(0);
+  tank.go(0);
+  tank.go(0);
+  equal(tick, 3, 'Stopping the tank during this callback, triggers the callback again.');
+  pkgDef.onTraverse = pkgDef.onTraversing = tick = 0;
+  tank.go(0);
+  pkgDef.onTraversing = function () {
+    tick++;
+  };
+  'onBegin|onEngage'.split('|').forEach(function (evtName) {
+    pkgDef[evtName] = function () {
+      tank.stop();
+    };
+    tank.go(0);
+    pkgDef[evtName] = 0;
+  });
+  equal(tick, 0, 'Only triggered when stopping the tank during a traversal.');
+});
+
+test('.onTraversed', function () {
+  var
+    Klass = Panzer.create(),
+    pkgDef = Klass.pkg('a'),
+    pkgInst = pkgDef(new Klass()),
+    tank = pkgInst.tank,
+    tick = 0
+  ;
+  strictEqual(pkgDef.onTraversed, 0, 'The default value is 0.');
+  pkgDef.onTraversed = function () {
+    tick++;
+    ok(this === pkgInst, 'The execution scope is the package-instance.');
+    equal(arguments.length, 2, 'Two arguments are passed.');
+    equal(arguments[0], 'traversed', 'The first argument is the "traversed" string, the event name.');
+    equal(typeof arguments[1], 'number', 'The second argument is the traversal type, a number.');
+  };
+  tank.go(0);
+  equal(tick, 1, 'As a function, .onTraversed is called when a tank completes traversing a node facet.');
+  pkgDef.onTraverse = function () {
+    tank.stop();
+  };
+  pkgDef.onTraversed = function () {
+    tick++;
+  };
+  tank.go(0);
+  equal(tick, 1, 'Not called when a traversal is aborted with tank.stop().');
+  pkgDef.onTraversing = pkgDef.onTraverse;
+  pkgDef.onTraverse = 0;
+  tank.go(0);
+  equal(tick, 1, 'Not called when stopping a resumed tank via .onTraversing.');
+  pkgDef.onTraversing = 0;
+  tank.go(0);
+  equal(tick, 3, 'Called to complete the resumption of a flow and the given traversal.');
+  tick = 0;
+  tank.go(1);
+  equal(tick, 2, 'Called per traversal phase.');
+});
+
 test('.onEnd', function () {
   var
     Klass = Panzer.create(),
@@ -652,29 +867,6 @@ test('.onEnd', function () {
     return false;
   };
   tank.go(0);
-});
-
-test('.getSuper()', function () {
-  var
-    Klass = Panzer.create(),
-    pkgDefA = Klass.pkg('a'),
-    pkgDefB = Klass.pkg('b'),
-    pkgDefC = Klass.pkg('c'),
-    someFnc = function () {};
-  equal(typeof pkgDefA.getSuper, 'function', 'This is a function.');
-  ok(
-    [1,'', 'foo', 'bar', undefined, null, {}, function () {}, []].every(
-      function (arg) {
-        return pkgDefB.getSuper(arg) === false;
-      }
-    ),
-    'Returns false when given a non/empty string argument.'
-  );
-  pkgDefA.proxy.foo = someFnc;
-  pkgDefC.proxy.foo = function () {};
-  equal(pkgDefC.getSuper('foo'), pkgDefA.proxy.foo, 'Returns the proxy method defined in earlier packages.');
-  delete pkgDefA.proxy;
-  equal(pkgDefC.getSuper('foo'), someFnc, 'Reads the private prototype, not the .proxy member of the pakage-definition.');
 });
 
 module('Structure');
@@ -1117,4 +1309,29 @@ test('Panzer-Instance/Proxy Methods', 6, function () {
   pkgDef1.proxy[mthdName] = mthd1;
   pkgDef2.proxy[mthdName] = mthd2;
   (new Klass())[mthdName]();
+});
+
+module('Loading');
+
+test('AMD', 2, function () {
+  var
+    script = document.createElement('script');
+  script.onload = function () {
+    var
+      rjs = requirejs.config({
+        baseUrl: '..',
+        paths: {
+          'genData' : 'src/genData/src/gendata'
+        }
+      })
+    ;
+    rjs(['src/panzer'], function (rjsPanzer) {
+      ok(typeof rjsPanzer == 'object' && typeof rjsPanzer.create == 'function', 'Panzer loads within an AMD environment.');
+      ok(rjsPanzer !== Panzer, 'The version loaded via AMD is unique to the window instance.');
+      start();
+    });
+  };
+  script.setAttribute('src', 'requirejs/require.js');
+  document.body.appendChild(script);
+  stop();
 });
