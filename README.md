@@ -1,5 +1,7 @@
 # Panzer
 
+[![Build Status](https://travis-ci.org/bemson/Panzer.png)](https://travis-ci.org/bemson/Panzer)
+
 (2/24/13)
 version 0.3.6
 by Bemi Faison
