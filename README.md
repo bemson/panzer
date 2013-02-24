@@ -1,7 +1,7 @@
 # Panzer
 
-(7/6/12)
-version 0.3.5
+(2/24/13)
+version 0.3.6
 by Bemi Faison
 
 A comprehensive node-tree solution, for smart data.\*
@@ -46,7 +46,7 @@ Then, in Node.js (or a CommonJS environment), require the module and reference t
 
 ### Dependencies
 
-Panzer requires [genData v2.0.1](https://github.com/bemson/genData). (The minified file includes this dependency.)
+Panzer requires [genData v3.1.0](https://github.com/bemson/genData). (The minified file includes this dependency.)
 
 ## USAGE
 

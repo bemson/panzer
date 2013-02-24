@@ -1,9 +1,9 @@
 /*!
- * Panzer v0.4.0
+ * Panzer v0.3.6 by Bemi Faison
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
- * genData v2.1.0 / Bemi Faison / MIT / http://github.com/bemson/genData
+ * genData v3.1.0 / Bemi Faison / MIT / http://github.com/bemson/genData
  *
  * Copyright 2012, Bemi Faison
  * Released under the MIT License
@@ -41,7 +41,7 @@
 
           return Klass;
         },
-        version: '0.4.0'
+        version: '0.3.6'
       },
       genData = (inCJS || inAMD) ? require('genData') : scope.genData,
       panzerInstanceCount = 0,
