@@ -312,6 +312,15 @@
         return pkgEntry;
       });
 
+      // expose public proxy to package-instances
+      tree.pkgs.forEach(function (pkgEntry) {
+        pkgEntry.inst.proxy = proxyInst;
+      });
+
+      // compose public proxy instance
+      proxyInst.pkgs = pkgProxyIdx;
+      proxyInst.toString = proxyToStringMethod;
+
       // disable tank events while initializing
       tree.fire = goodForNothinFunction;
       tree.pkgs.forEach(function (pkgEntry) {
@@ -324,16 +333,6 @@
         }
       });
       delete tree.fire;
-
-
-      // expose public proxy to package-instances
-      tree.pkgs.forEach(function (pkgEntry) {
-        pkgEntry.inst.proxy = proxyInst;
-      });
-
-      // compose public proxy instance
-      proxyInst.pkgs = pkgProxyIdx;
-      proxyInst.toString = proxyToStringMethod;
     }
     Tree.prototype = {
 

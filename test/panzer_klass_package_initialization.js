@@ -39,11 +39,16 @@ describe( 'Package initialization', function () {
     pkgDef.onBegin.should.not.have.been.called;
   });
 
-  it( 'should not reference the proxy (Klass instance)', function () {
+  it( 'should reference the public proxy (the Klass instance)', function () {
+    var initProxy, publicProxy;
     pkgDef.init = function () {
-      this.should.not.include.key('proxy');
+      this.should.include.key('proxy');
+      initProxy = this.proxy;
     };
-    pkgDef(new Klass()).should.include.key('proxy');
+    publicProxy = new Klass();
+    pkgDef(publicProxy).should.include.key('proxy');
+    publicProxy.should.equal(initProxy);
+
   });
 
   it( 'should have a .pkgs member', function () {
