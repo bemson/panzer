@@ -2,8 +2,8 @@
 
 [![Build Status](https://travis-ci.org/bemson/Panzer.png)](https://travis-ci.org/bemson/Panzer)
 
-(2/24/13)
-version 0.3.6
+(3/26/13)
+version 0.3.7
 by Bemi Faison
 
 A comprehensive node-tree solution, for smart data.\*
@@ -107,12 +107,12 @@ Understanding the package api is key to getting the most from your class. Howeve
 ## FILES
 
 * src/ - Directory containing the source code
-* test/ - [Qunit](http://docs.jquery.com/QUnit) tests of minified source files
+* test/ - [Mocha](http://visionmedia.github.com/mocha) test suite
 * README.md - This readme file
 * LICENSE - The legal terms and conditions under which this software may be used
-* panzer-min.js - The Panzer platform, including dependencies, minified and geared for browser environments
+* panzer-min.js - The Panzer platform, including dependencies, minified for browser environments
 
-Source files minified with [UglifyJS](http://marijnhaverbeke.nl/uglifyjs)
+Source files minified with both [UglifyJS](http://marijnhaverbeke.nl/uglifyjs) and [Yahoo! Compressor](http://developer.yahoo.com/yui/compressor/).
 
 ## LICENSE
 
