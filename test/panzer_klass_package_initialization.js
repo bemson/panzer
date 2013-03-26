@@ -19,24 +19,19 @@ describe( 'Package initialization', function () {
     pkgDef.init.should.have.been.calledBefore(pkgDefB.init);
   });
 
-  it( 'should allow directing the tank', function () {
-    var pkgInst;
-    pkgDef.init = function () {
-      this.tank.go(1);
-    };
-    pkgInst = pkgDef(new Klass());
-    pkgInst.tank.currentIndex.should.equal(1);
-  });
-
-  it( 'should allow directing the tank', function () {
+  it( 'should move the tank without firing events', function () {
     var pkgInst;
     pkgDef.init = function () {
       this.tank.go(1);
     };
     pkgDef.onBegin = sinon.spy();
+    pkgDef.onEnd = sinon.spy();
     pkgInst = pkgDef(new Klass());
     pkgInst.tank.currentIndex.should.equal(1);
     pkgDef.onBegin.should.not.have.been.called;
+    pkgDef.onEnd.should.not.have.been.called;
+    pkgInst.tank.go(0);
+    pkgDef.onBegin.should.have.been.calledOnce;
   });
 
   it( 'should reference the public proxy (the Klass instance)', function () {
