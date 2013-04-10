@@ -97,6 +97,23 @@ describe( 'Package Tank', function () {
 
     });
 
+    describe( 'while interrupted', function () {
+
+      it( 'should resume without a target', function () {
+        pkgDef.onTraverse = sinon.spy(function () {
+          this.tank.stop();
+        });
+        pkgDef.onTraversing = sinon.spy();
+        pkgDef.onTraversed = sinon.spy();
+        tank.go(0);
+        tank.go();
+        pkgDef.onTraverse.should.have.been.calledOnce;
+        pkgDef.onTraversing.should.have.been.calledOnce;
+        pkgDef.onTraversed.should.have.been.calledOnce;
+      });
+
+    });
+
   });
 
   describe( '.stop()', function () {

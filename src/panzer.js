@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.3.7 by Bemi Faison
+ * Panzer v0.3.8 by Bemi Faison
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -41,7 +41,7 @@
 
           return Klass;
         },
-        version: '0.3.7'
+        version: '0.3.8'
       },
       genData = (inCJS || inAMD) ? require('genData') : scope.genData,
       panzerInstanceCount = 0,
@@ -368,7 +368,7 @@
 
         // navigate towards the target node, until stopped
         while (tree.loop) {
-          if (tree.target && !tree.stop) {
+          if ((resuming || tree.target) && !tree.stop) {
             endEventFired = 0;
             if (lastTargetIndex != tree.target.index || !(~nextPhase | ~nextNodeIndex)) {
 
@@ -470,7 +470,8 @@
                 tree.stopped = 0;
               }
               // flag stopped traversals (allows stopping during "traversed" event as well)
-              resuming = tree.stopped = tree.stop;
+              tree.stopped = tree.stop;
+              resuming = 0;
 
               if (nextPhase == 2) {
                 // exit the current node
