@@ -10,7 +10,11 @@ describe( 'Package events', function () {
       'onTraversed','onTraversing'
     ],
     stuffObj = [],
-    stuff = {'a':1,'a2':'foo', 'c': stuffObj}
+    stuff = {
+      'a':1,
+      'a2':'foo',
+      'c': stuffObj
+    }
   ;
 
   beforeEach(function () {
@@ -281,6 +285,132 @@ describe( 'Package events', function () {
       pkgInst.tank.go(3);
       pkgInst.tank.go(2);
       pkgDef.onTraverse.calledWith(5);
+    });
+
+  });
+
+  describe( 'stopping and resuming', function () {
+
+    it( 'should resume when on a node', function () {
+      pkgDef.onTraverse = sinon.spy(function (eventName, traversalPhase) {
+        if (traversalPhase === 0) {
+          this.tank.stop();
+        }
+      });
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go(0);
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraverse.reset();
+      pkgDef.onTraversed.should.not.have.been.calledOnce;
+
+      pkgDef.onTraversed = sinon.spy(function () {
+        this.tank.stop();
+      });
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.not.have.been.called;
+      pkgDef.onTraversed.should.have.been.calledOnce;
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go();
+      pkgDef.onTraversed.should.have.been.calledOnce;
+    });
+
+    it( 'should resume when entering a node', function () {
+      pkgDef.onTraverse = sinon.spy(function (eventName, traversalPhase) {
+        if (traversalPhase === 1) {
+          this.tank.stop();
+        }
+      });
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go(1);
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraverse = sinon.spy();
+      pkgDef.onTraversed.should.not.have.been.called;
+
+      pkgDef.onTraversed = sinon.spy(function () {
+        this.tank.stop();
+      });
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.not.have.been.called;
+      pkgDef.onTraversed.should.have.been.calledOnce;
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraversed.should.have.been.calledTwice;
+    });
+
+    it( 'should resume when exiting a node', function () {
+      pkgInst.tank.go(1);
+      pkgDef.onTraverse = sinon.spy(function (eventName, traversalPhase) {
+        if (traversalPhase === 2) {
+          this.tank.stop();
+        }
+      });
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go(0);
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraverse = sinon.spy();
+      pkgDef.onTraversed.should.not.have.been.called;
+
+      pkgDef.onTraversed = sinon.spy(function () {
+        this.tank.stop();
+      });
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.not.have.been.called;
+      pkgDef.onTraversed.should.have.been.calledOnce;
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraversed.should.have.been.calledTwice;
+    });
+
+    it( 'should resume when bypassing a node, down the tree', function () {
+      pkgInst.tank.go(1);
+      pkgDef.onTraverse = sinon.spy(function (eventName, traversalPhase) {
+        if (traversalPhase === 3) {
+          this.tank.stop();
+        }
+      });
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go(3);
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraverse = sinon.spy();
+      pkgDef.onTraversed.should.not.have.been.called;
+
+      pkgDef.onTraversed = sinon.spy(function () {
+        this.tank.stop();
+      });
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.not.have.been.called;
+      pkgDef.onTraversed.should.have.been.calledOnce;
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.have.been.calledTwice;
+      pkgDef.onTraversed.should.have.been.calledThrice;
+    });
+
+    it( 'should resume when bypassing a node, up the tree', function () {
+      pkgInst.tank.go(3);
+      pkgDef.onTraverse = sinon.spy(function (eventName, traversalPhase) {
+        if (traversalPhase === 4) {
+          this.tank.stop();
+        }
+      });
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go(1);
+      pkgDef.onTraverse.should.have.been.calledTwice;
+      pkgDef.onTraverse = sinon.spy();
+      pkgDef.onTraversed.should.have.been.calledOnce;
+
+      pkgDef.onTraversed = sinon.spy(function () {
+        this.tank.stop();
+      });
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.not.have.been.called;
+      pkgDef.onTraversed.should.have.been.calledOnce;
+      pkgDef.onTraversed = sinon.spy();
+      pkgInst.tank.go();
+      pkgDef.onTraverse.should.have.been.calledOnce;
+      pkgDef.onTraversed.should.have.been.calledTwice;
     });
 
   });
