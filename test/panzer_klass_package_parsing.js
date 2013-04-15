@@ -156,10 +156,18 @@ describe( 'Package parsing', function () {
       pkgDef.prepTree.should.have.been.calledWith(stuff);
     });
 
-    it( 'should be called once Klass instantiation', function () {
+    it( 'should be called once per Klass instantiation', function () {
       pkgDef.prepTree = sinon.spy();
       new Klass();
       pkgDef.prepTree.should.have.been.calledOnce;
+    });
+
+    it( 'should be called before .prepNode', function () {
+      pkgDef.prepTree = sinon.spy();
+      pkgDef.prepNode = sinon.spy();
+      new Klass({foo:'bar'});
+      pkgDef.prepTree.should.have.been.calledBefore(pkgDef.prepNode);
+      pkgDef.prepNode.should.have.been.called;
     });
 
     it( 'should alter the compiled tree by returning any defined value', function () {
