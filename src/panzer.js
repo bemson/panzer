@@ -165,7 +165,11 @@
           ar: [],   // attribute regexp tests
           nf: [],   // node function tests
           nr: []    // node regexp tests
-        }
+        },
+        forLoopIdx,
+        forLoopLength,
+        forLoopItem,
+        tmp
       ;
 
       // get the package instance corresponding this panzer
@@ -179,30 +183,26 @@
       }
 
       // catalog package key tests and preprocess the tree
-      panzer.pkgs.forEach(function (pkg) {
-        var
-          pkgAttrTest = pkg.def.attrKey,
-          pkgNodeTest = pkg.def.badKey,
-          prepTreeFnc = pkg.def.prepTree,
-          alternateTreeObject
-        ;
-
+      for (forLoopIdx = 0; forLoopItem = panzer.pkgs[forLoopIdx]; forLoopIdx++) {
         // cache package key tests schemes
-        if (typeof pkgAttrTest === 'function') {
-          keyTestMap.af.push(pkgAttrTest);
-        } else if (pkgAttrTest instanceof RegExp) {
-          keyTestMap.ar.push(pkgAttrTest);
+        if (typeof forLoopItem.def.attrKey === 'function') {
+          keyTestMap.af.push(forLoopItem.def.attrKey);
+        } else if (forLoopItem.def.attrKey instanceof RegExp) {
+          keyTestMap.ar.push(forLoopItem.def.attrKey);
         }
-        if (typeof pkgNodeTest === 'function') {
-          keyTestMap.nf.push(pkgNodeTest);
-        } else if (pkgNodeTest instanceof RegExp) {
-          keyTestMap.nr.push(pkgNodeTest);
+        if (typeof forLoopItem.def.badKey === 'function') {
+          keyTestMap.nf.push(forLoopItem.def.badKey);
+        } else if (forLoopItem.def.badKey instanceof RegExp) {
+          keyTestMap.nr.push(forLoopItem.def.badKey);
         }
 
-        if (typeof prepTreeFnc === 'function' && typeof (alternateTreeObject = prepTreeFnc.call(scope, rawtree)) !== 'undefined') {
-          rawtree = alternateTreeObject;
+        if (
+          typeof forLoopItem.def.prepTree === 'function' &&
+          typeof (tmp = forLoopItem.def.prepTree.call(scope, rawtree)) !== 'undefined'
+        ) {
+          rawtree = tmp;
         }
-      });
+      }
 
       // compile canonical node-tree
       tree.nodes = genNodes(rawtree, panzer, keyTestMap);
@@ -323,15 +323,11 @@
 
       // disable tank events while initializing
       tree.fire = goodForNothinFunction;
-      tree.pkgs.forEach(function (pkgEntry) {
-        var
-          customInit = pkgEntry.pkg.def.init,
-          pkgInst = pkgEntry.inst
-        ;
-        if (typeof customInit === 'function') {
-          customInit.call(pkgInst, klassConfig);
+      for (forLoopIdx = 0; forLoopItem = tree.pkgs[forLoopIdx]; forLoopIdx++) {
+        if (typeof forLoopItem.pkg.def.init === 'function') {
+          forLoopItem.pkg.def.init.call(forLoopItem.inst, klassConfig);
         }
-      });
+      }
       delete tree.fire;
     }
     Tree.prototype = {
