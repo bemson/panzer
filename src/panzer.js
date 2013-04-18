@@ -315,9 +315,9 @@
       });
 
       // expose public proxy to package-instances
-      tree.pkgs.forEach(function (pkgEntry) {
-        pkgEntry.inst.proxy = proxyInst;
-      });
+      for (forLoopIdx = 0; forLoopItem = tree.pkgs[forLoopIdx]; forLoopIdx++) {
+        forLoopItem.inst.proxy = proxyInst;
+      }
 
       // compose public proxy instance
       proxyInst.pkgs = pkgProxyIdx;
