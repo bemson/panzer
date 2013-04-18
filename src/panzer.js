@@ -58,7 +58,10 @@
             isBadKey = keyTestMap && name &&
               (keyTestMap.nf.some(passKeyFnc) || keyTestMap.nr.some(passKeyRxp)),
             isAttrKey = keyTestMap && name &&
-              (keyTestMap.af.some(passKeyFnc) || keyTestMap.ar.some(passKeyRxp))
+              (keyTestMap.af.some(passKeyFnc) || keyTestMap.ar.some(passKeyRxp)),
+            alternateSourceObject,
+            pkg,
+            pkgIdx = 0
           ;
 
           function passKeyFnc(badFnc) {
@@ -116,15 +119,14 @@
             }
             // let each packager alter this node's structure
             if (parent && panzer && panzer.pkgs.length) {
-              panzer.pkgs.forEach(function (pkg) {
-                var
-                  prepNodeFnc = pkg.def.prepNode,
-                  alternateSourceObject
-                ;
-                if (typeof prepNodeFnc === 'function' && typeof (alternateSourceObject = prepNodeFnc.call(scope, flags.source, flags.tree)) !== 'undefined') {
+              for (; pkg = panzer.pkgs[pkgIdx]; pkgIdx++) {
+                if (
+                  typeof pkg.def.prepNode === 'function' &&
+                  typeof (alternateSourceObject = pkg.def.prepNode.call(scope, flags.source, flags.tree)) !== 'undefined'
+                ) {
                   flags.source = alternateSourceObject;
                 }
-              });
+              }
             }
           }
         }
