@@ -504,15 +504,19 @@
       fire: function (eventName) {
         var
           handlerName = 'on' + eventName.charAt(0).toUpperCase() + eventName.substr(1),
-          handlerArgs = arguments
+          handlerArgs = arguments,
+          pkgIdx = 0,
+          pkgEntry,
+          pkgCallback
         ;
+
         // execute each package's callback
-        this.pkgs.forEach(function (pkgEntry) {
-          var callback = pkgEntry.pkg.def[handlerName];
-          if (typeof callback == 'function') {
-            callback.apply(pkgEntry.inst, handlerArgs);
+        for (; pkgEntry = this.pkgs[pkgIdx]; pkgIdx++) {
+          pkgCallback = pkgEntry.pkg.def[handlerName];
+          if (typeof pkgCallback == 'function') {
+            pkgCallback.apply(pkgEntry.inst, handlerArgs);
           }
-        });
+        }
       }
 
     };
