@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.3.9 by Bemi Faison
+ * Panzer v0.3.10 by Bemi Faison
  * http://github.com/bemson/Panzer
  *
  * Dependencies:
@@ -41,7 +41,7 @@
 
           return Klass;
         },
-        version: '0.3.9'
+        version: '0.3.10'
       },
       genData = (inCJS || inAMD) ? require('genData') : scope.genData,
       panzerInstanceCount = 0,
