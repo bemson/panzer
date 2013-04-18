@@ -2,8 +2,8 @@
 
 [![Build Status](https://travis-ci.org/bemson/Panzer.png)](https://travis-ci.org/bemson/Panzer)
 
-(3/26/13)
-version 0.3.7
+(4/17/13)
+version 0.3.9
 by Bemi Faison
 
 A comprehensive node-tree solution, for smart data.\*
