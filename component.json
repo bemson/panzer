@@ -1,0 +1,21 @@
+{
+  "name": "Panzer",
+  "repo": "bemson/Panzer",
+  "description": "A comprehensive node-tree solution, for smart data.",
+  "version": "0.3.10",
+  "keywords": [
+    "tree",
+    "traversal",
+    "platform",
+    "classes"
+  ],
+  "dependencies": {
+    "bemson/genData": "~3.1"
+  },
+  "development": {},
+  "license": "MIT",
+  "main": "src/panzer.js",
+  "scripts": [
+    "src/panzer.js"
+  ]
+}

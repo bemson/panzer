@@ -2,7 +2,6 @@
 
 [![Build Status](https://travis-ci.org/bemson/Panzer.png)](https://travis-ci.org/bemson/Panzer)
 
-(4/18/13)
 version 0.3.10
 by Bemi Faison
 
@@ -30,21 +29,12 @@ Use a `<SCRIPT>` tag to reference panzer.min.js, as you would any external JavaS
     // ... Panzer dependent code ...
   </script>
 ```
+
 ### Node.js
 
-Use [npm](http://npmjs.org) to install the "Panzer" module and it's dependencies.
-
-```bash
-  npm install Panzer
-```
-
-Then, in Node.js (or a CommonJS environment), require the module and reference the exported "Panzer" object.
-
-```js
-  var myPanzerReference = require('Panzer').Panzer;
-
-  // ... code dependent on "myPanzerReference" ...
-```
+  * `npm install Panzer` if you're using [npm](http://npmjs.org/)
+  * `component install bemson/Panzer` if you're using [component](https://github.com/component/component)
+  * `bower install Panzer` if you're using [Bower](http://bower.io)
 
 ### Dependencies
 

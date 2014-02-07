@@ -1,0 +1,31 @@
+{
+  "name": "Panzer",
+  "version": "0.3.10",
+  "homepage": "https://github.com/bemson/Panzer",
+  "authors": [
+    "Bemi Faison <bemson@gmail.com>  (http://learnings-bemson.blogspot.com)"
+  ],
+  "description": "A comprehensive node-tree solution, for smart data.",
+  "main": "src/panzer.js",
+  "keywords": [
+    "tree",
+    "traversal",
+    "platform",
+    "classes"
+  ],
+  "dependencies": {
+    "genData": "3.1.1"
+  },
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "*.json",
+    "node_modules",
+    "test",
+    "bower_components",
+    "components",
+    "README.md",
+    "LICENSE",
+    "panzer.min.js"
+  ]
+}
