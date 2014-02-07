@@ -2,7 +2,7 @@
   "name": "Panzer",
   "repo": "bemson/Panzer",
   "description": "A comprehensive node-tree solution, for smart data.",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "keywords": [
     "tree",
     "traversal",
@@ -10,7 +10,7 @@
     "classes"
   ],
   "dependencies": {
-    "bemson/genData": "~3.1"
+    "bemson/genData": "3.1.1"
   },
   "development": {},
   "license": "MIT",
