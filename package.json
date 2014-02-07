@@ -2,11 +2,7 @@
   "name": "Panzer",
   "version": "0.3.10",
   "description": "A comprehensive node-tree solution, for smart data.",
-  "author": {
-    "name": "Bemi Faison",
-    "email": "bemson@gmail.com",
-    "url": "https://github.com/bemson"
-  },
+  "author": "Bemi Faison <bemson@gmail.com> (http://learnings-bemson.blogspot.com)",
   "main": "src/panzer.js",
   "scripts": {
     "test": "node_modules/.bin/mocha"
