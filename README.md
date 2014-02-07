@@ -22,10 +22,10 @@ __\*__ Read _[The Cathedral and the Bazaar](http://www.redhat.com/support/wpaper
 
 ### Web Browsers
 
-Use a `<SCRIPT>` tag to reference panzer-min.js, as you would any external JavaScript file. The "Panzer" namespace will be added to the global scope.
+Use a `<SCRIPT>` tag to reference panzer.min.js, as you would any external JavaScript file. The "Panzer" namespace will be added to the global scope.
 
 ```html
-  <script type="text/javascript" src="somepath/panzer-min.js"></script>
+  <script type="text/javascript" src="somepath/panzer.min.js"></script>
   <script type="text/javascript">
     // ... Panzer dependent code ...
   </script>
@@ -110,7 +110,7 @@ Understanding the package api is key to getting the most from your class. Howeve
 * test/ - [Mocha](http://visionmedia.github.com/mocha) test suite
 * README.md - This readme file
 * LICENSE - The legal terms and conditions under which this software may be used
-* panzer-min.js - The Panzer platform, including dependencies, minified for browser environments
+* panzer.min.js - The Panzer platform, including dependencies, minified for browser environments
 
 Source files minified with both [UglifyJS](http://marijnhaverbeke.nl/uglifyjs) and [Yahoo! Compressor](http://developer.yahoo.com/yui/compressor/).
 
