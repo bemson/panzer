@@ -126,9 +126,12 @@ describe( 'Package parsing', function () {
       pkgDef.prepNode = sinon.spy();
       new Klass(stuff);
 
+      pkgDef.prepNode.should.have.been.calledWith(stuff, stuff);
       pkgDef.prepNode.should.have.been.calledWith(stuff.a, stuff);
-      pkgDef.prepNode.firstCall.args[0].should.not.equal(stuff);
-      pkgDef.prepNode.firstCall.args[0].should.equal(stuff.a);
+
+      pkgDef.prepNode.firstCall.args[0].should.equal(stuff);
+      pkgDef.prepNode.secondCall.args[0].should.equal(stuff.a);
+      pkgDef.prepNode.thirdCall.args[0].should.equal(stuff.a2);
     });
 
     it( 'should alter the compiled tree by returning an object', function () {
@@ -140,10 +143,23 @@ describe( 'Package parsing', function () {
       pkgDef.prepNode = function () {
         if (!changed) {
           changed = 1;
-          return stuff;
+          return {a:1};
         }
       };
-      pkgDef(new Klass(stuff)).nodes.length.should.be.above(nodeCount);
+      pkgDef(new Klass(stuff)).nodes.length
+        .should.be.below(nodeCount)
+        .and.equal(3);
+    });
+
+    it( 'should allow changing the raw tree', function () {
+      var nodeCount = pkgDef(new Klass(stuff)).nodes.length;
+
+      pkgDef.prepNode = function () {
+        return 1;
+      };
+      pkgDef(new Klass(stuff)).nodes.length.should
+        .be.below(nodeCount)
+        .and.equal(2);
     });
 
   });
