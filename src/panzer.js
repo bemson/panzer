@@ -118,7 +118,7 @@
               flags.tree = value;
             }
             // let each packager alter this node's structure
-            if (parent && panzer && panzer.pkgs.length) {
+            if (panzer && panzer.pkgs.length) {
               for (; pkg = panzer.pkgs[pkgIdx]; pkgIdx++) {
                 if (
                   typeof pkg.def.prepNode === 'function' &&
