@@ -217,6 +217,28 @@ describe( 'Package events', function () {
 
   describe( '.onTraversing', function () {
 
+    it( 'should expect two arguments', function () {
+      pkgDef.onTraverse = function () {
+        this.tank.stop();
+      };
+      pkgDef.onTraversing = sinon.spy();
+      pkgInst.tank.go(1);
+      pkgInst.tank.go(0);
+      pkgDef.onTraversing.should.have.been.calledOnce;
+      pkgDef.onTraversing.firstCall.args.should.have.length(2);
+    });
+
+    it( 'should be passed a number as the second argument', function () {
+      pkgDef.onTraverse = function () {
+        this.tank.stop();
+      };
+      pkgDef.onTraversing = sinon.spy();
+      pkgInst.tank.go(1);
+      pkgInst.tank.go(0);
+      pkgDef.onTraversing.should.have.been.calledOnce;
+      expect(pkgDef.onTraversing.firstCall.args[1]).to.be.a.number;
+    });
+
     it( 'should occur if traverse/traversed callback stops navigation', function () {
       pkgDef.onTraverse = pkgDef.onTraversing = function () {
         this.tank.stop();
@@ -250,6 +272,26 @@ describe( 'Package events', function () {
       pkgDef.onTraverse.firstCall.args[1]
         .should.equal(pkgDef.onTraversing.firstCall.args[1]);
       curNode.should.equal(1);
+    });
+
+    it( 'should occur with the same node and phase as the previous .onTraverse', function () {
+      var
+        curNode = -1,
+        phases = []
+      ;
+      pkgDef.onTraversing = function (evt, phase) {
+        phases.push([this.tank.currentIndex, phase]);
+      };
+      pkgDef.onTraverse = function (evt, phase) {
+        this.tank.stop();
+        phases.push([this.tank.currentIndex, phase]);
+      };
+
+      pkgInst.tank.go(1);
+      pkgInst.tank.go(0);
+
+      phases.should.have.length.above(1);
+      expect(phases[0][1]).to.equal(phases[1][1]);
     });
 
   });
