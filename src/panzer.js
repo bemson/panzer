@@ -1,5 +1,5 @@
 /*!
- * Panzer v0.3.12 by Bemi Faison
+ * Panzer v0.3.13 by Bemi Faison
  * http://github.com/bemson/Panzer
  *
  * Dependencies:

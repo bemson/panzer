@@ -1,8 +1,8 @@
 # Panzer
 
-[![Build Status](https://travis-ci.org/bemson/Panzer.png)](https://travis-ci.org/bemson/Panzer)
+[![Build Status](https://travis-ci.org/bemson/panzer.png)](https://travis-ci.org/bemson/panzer)
 
-version 0.3.12
+version 0.3.13
 by Bemi Faison
 
 A comprehensive node-tree solution, for smart data.\*
@@ -32,9 +32,10 @@ Use a `<SCRIPT>` tag to reference panzer.min.js, as you would any external JavaS
 
 ### Node.js
 
-  * `npm install Panzer` if you're using [npm](http://npmjs.org/)
-  * `component install bemson/Panzer` if you're using [component](https://github.com/component/component)
-  * `bower install Panzer` if you're using [Bower](http://bower.io)
+  * `npm install panzer` if you're using [npm](http://npmjs.org/)
+  * `component install bemson/panzer` if you're using [component](https://github.com/component/component)
+  * `bower install panzer` if you're using [Bower](http://bower.io)
+
 
 ### Dependencies
 
@@ -108,4 +109,4 @@ Source files minified with both [UglifyJS](http://marijnhaverbeke.nl/uglifyjs) a
 
 Panzer is available under the terms of the [MIT-License](http://www.opensource.org/licenses/mit-license.php).
 
-Copyright 2012, Bemi Faison
+Copyright 2014, Bemi Faison

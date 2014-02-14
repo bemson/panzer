@@ -1,8 +1,8 @@
 {
-  "name": "Panzer",
-  "repo": "bemson/Panzer",
+  "name": "panzer",
+  "repo": "bemson/panzer",
   "description": "A comprehensive node-tree solution, for smart data.",
-  "version": "0.3.12",
+  "version": "0.3.13",
   "keywords": [
     "tree",
     "traversal",
