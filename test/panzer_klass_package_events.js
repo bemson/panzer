@@ -415,4 +415,34 @@ describe( 'Package events', function () {
 
   });
 
+  describe( 'navigation', function () {
+
+    it( 'should allow stopping towards parent and redirecting to older sibling', function () {
+      var phases = [];
+
+      pkgInst.tank.go(2);
+      pkgDef.onTraverse = function (evt, phase) {
+        expect(phase).to.equal(2);
+        this.tank.currentIndex.should.equal(2);
+        this.tank.stop();
+      };
+      pkgInst.tank.currentIndex.should.equal(2);
+      pkgInst.tank.go(0);
+      pkgInst.tank.currentIndex.should.equal(2);
+
+      pkgDef.onTraversing = sinon.spy(function (evt, phase) {
+        this.tank.currentIndex.should.equal(2);
+      });
+      pkgDef.onTraverse = function (evt, phase) {
+        phases.push([this.tank.currentIndex, phase]);
+      };
+
+      pkgInst.tank.go(3);
+      pkgDef.onTraversing.should.have.been.calledOnce;
+      pkgInst.tank.currentIndex.should.equal(3);
+      phases.should.eql([[3,1], [3,0]]);
+    });
+
+  });
+
 });
