@@ -434,7 +434,7 @@
                 // engage the current node
                 nodeEngaged = 1;
                 tree.fire('engage');
-            } else if (!inCurrentNode && (nextPhase == 1 || nextPhase == 2)) {
+            } else if (!inCurrentNode && !resuming && (nextPhase == 1 || nextPhase == 2)) {
               if (nextPhase == 2) {
                 // clear target phase
                 nextPhase = -1;
