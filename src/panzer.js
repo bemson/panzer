@@ -13,36 +13,6 @@
   // dependent module initializer
   function initPanzer(require) {
     var
-      Panzer = {
-        // public method to return a Panzer class
-        create: function () {
-          var
-            // platform configuration
-            panzer = {
-              pkgs: [],
-              pkgsIdx: {},
-              KlassProxy: function () {},
-              Klass: Klass
-            };
-
-          function Klass(rawtree, klassConfig) {
-            if (!(this instanceof Klass)) {
-              throw new Error('Missing new operator.');
-            }
-            // define corresponding privileged instance
-            new Tree(panzer, this, rawtree, typeof klassConfig === 'object' ? klassConfig : {});
-          }
-          Klass.prototype = panzer.KlassProxy.prototype;
-
-          // Klass package manager
-          Klass.pkg = function () {
-            return ResolveOrRegisterKlassPackage.apply(panzer, arguments);
-          };
-
-          return Klass;
-        },
-        version: '0.3.10'
-      },
       genData = (inCJS || inAMD) ? require('genData') : scope.genData,
       panzerInstanceCount = 0,
       postCallbackCount = 0,
@@ -622,7 +592,38 @@
     // noOp function used in various places
     function goodForNothinFunction() {}
 
-    return Panzer;
+    // return module namespace
+    return {
+      // public method to return a Panzer class
+      create: function () {
+        var
+          // platform configuration
+          panzer = {
+            pkgs: [],
+            pkgsIdx: {},
+            KlassProxy: function () {},
+            Klass: Klass
+          };
+
+        function Klass(rawtree, klassConfig) {
+          var inst = this;
+          if (!(inst instanceof Klass)) {
+            throw new Error('Missing new operator.');
+          }
+          // define corresponding privileged instance
+          new Tree(panzer, inst, rawtree, typeof klassConfig === 'object' ? klassConfig : {});
+        }
+        Klass.prototype = panzer.KlassProxy.prototype;
+
+        // Klass package manager
+        Klass.pkg = function () {
+          return ResolveOrRegisterKlassPackage.apply(panzer, arguments);
+        };
+
+        return Klass;
+      },
+      version: '0.3.10'
+    };
   }
 
   // initialize Panzer, based on the environment
