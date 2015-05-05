@@ -46,7 +46,7 @@ describe( 'Package events', function () {
     function trace(n) {
       return function () {
         order.push(n);
-      }
+      };
     }
 
     pkgDef.onBegin = trace(1);
@@ -150,7 +150,7 @@ describe( 'Package events', function () {
 
   });
 
-  describe( '.onRelease and .onEngage', function () {
+  describe( '.onRelease & .onEngage', function () {
 
     it( 'should wrap .onScope and traversal events', function () {
       var EventsBetweenReleaseAndEngage = eventNames.slice(5);
@@ -183,7 +183,7 @@ describe( 'Package events', function () {
 
   describe( '.onScope', function () {
 
-    it( 'should indicating entry or exit with a second argument', function () {
+    it( 'should indicate entry or exit with a second argument', function () {
       pkgDef.onScope = sinon.spy();
       pkgInst.tank.go(1);
       pkgInst.tank.go(0);

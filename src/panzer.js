@@ -293,13 +293,14 @@
       proxyInst.pkgs = pkgProxyIdx;
       proxyInst.toString = proxyToStringMethod;
 
-      // disable tank events while initializing
+      // disable tank events while initializing packages
       tree.fire = goodForNothinFunction;
       for (forLoopIdx = 0; forLoopItem = tree.pkgs[forLoopIdx]; forLoopIdx++) {
         if (typeof forLoopItem.pkg.def.init === 'function') {
           forLoopItem.pkg.def.init.call(forLoopItem.inst, klassConfig);
         }
       }
+      // remove method overload
       delete tree.fire;
     }
     Tree.prototype = {
