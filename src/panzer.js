@@ -524,24 +524,6 @@
 
     };
 
-    // get next method up the prototype chain
-    function GetSuperMethodFromKlassPackage(pkgIdx, name) {
-      var
-        pkg = this.pkgs[pkgIdx - 1],
-        pkgInst
-      ;
-
-      // search prototype from this point in the chain
-      if (pkg && name && typeof name === 'string') {
-        pkgInst = new pkg.proxy();
-        if (typeof pkgInst[name] === 'function') {
-          return pkgInst[name];
-        }
-      }
-
-      // always return a function
-      return goodForNothinFunction;
-    }
 
     // get or create package for a Panzer Klass
     function ResolveOrRegisterKlassPackage(pkgName) {
@@ -564,9 +546,7 @@
                 return proxyInst instanceof panzer.pkgs[pkgIdx].proxy && proxyInst.toString(panzer, pkgIdx);
               }
             }
-            Pkg.getSuper = function (methodName) {
-              return GetSuperMethodFromKlassPackage.call(panzer, pkgIdx, methodName);
-            };
+            Pkg.getSuper = panzer.getSuper;
 
             // init all package members
             Pkg.init =             // initializer for this package
@@ -633,7 +613,27 @@
             pkgs: [],
             pkgsIdx: {},
             KlassProxy: function () {},
-            Klass: Klass
+            Klass: Klass,
+            // shared package-definition method
+            // to get next method up the prototype chain
+            getSuper: function (methodName) {
+              // "this" is the package-definition
+              var
+                pkg = panzer.pkgs[panzer.pkgsIdx[this.label] - 1],
+                pkgInst
+              ;
+
+              // search prototype from this point in the chain
+              if (pkg && methodName && typeof methodName === 'string') {
+                pkgInst = new pkg.proxy();
+                if (typeof pkgInst[methodName] === 'function') {
+                  return pkgInst[methodName];
+                }
+              }
+
+              // always return a function
+              return goodForNothinFunction;
+            }
           };
 
         function Klass(rawtree, klassConfig) {
