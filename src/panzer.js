@@ -211,14 +211,17 @@
             tree.target = tgtNode;
             tree.tank.targetIndex = tgtNode.index;
           }
-          tree.stop = 0;
+          // trip package stop flag
+          // this only matters when in the loop
+          tree.pstop = 0;
           return tree.go();
         },
 
         // stop the tank
         stop: function () {
-          // set internal stop flag
-          tree.stop = 1;
+          // trip package stop flag
+          // this only matters when in the loop
+          tree.pstop = 1;
           // return truthy when this tree is in a loop, otherwise falsy
           return !!tree.loop;
         },
@@ -260,7 +263,8 @@
             name: pkgName,
             idx: pkg.idx,
             pkg: pkg,
-            inst: new pkgDef()
+            inst: new pkgDef(),
+            lock: 0
           }
         ;
 
@@ -313,6 +317,7 @@
           tank = tree.tank,
           postId,
           dir,
+          pkgLn = tree.pkgs.length,
           inCurrentNode,
           traversalCount = 0,
           resuming = tree.stopped,
@@ -332,6 +337,12 @@
         // reset loop flags
         tree.posts = {};
         tree.loop = 1;
+        tree.stop = 0;
+
+        // reset pkgEntry locks
+        while (pkgLn--) {
+          tree.pkgs[pkgLn].lock = 0;
+        }
 
         tree.fire('begin');
 
@@ -476,18 +487,37 @@
       // invoke package event handlers
       fire: function (eventName) {
         var
+          tree = this,
           handlerName = 'on' + eventName.charAt(0).toUpperCase() + eventName.substr(1),
           handlerArgs = arguments,
           pkgIdx = 0,
           pkgEntry,
-          pkgCallback
+          pkgCallback,
+          pkgLock
         ;
-
+        // fire event on class
         // execute each package's callback
         for (; pkgEntry = this.pkgs[pkgIdx]; pkgIdx++) {
           pkgCallback = pkgEntry.pkg.def[handlerName];
-          if (typeof pkgCallback == 'function') {
+          if (pkgCallback && typeof pkgCallback == 'function') {
+            // copy current package lock flag
+            pkgLock =
+            tree.pstop =
+              pkgEntry.lock;
             pkgCallback.apply(pkgEntry.inst, handlerArgs);
+            // if the package lock has changed...
+            if (pkgLock != tree.pstop) {
+              // capture new package lock
+              pkgLock =
+              pkgEntry.lock =
+                tree.pstop;
+              // increment or decrement stop flag, based on current lock
+              if (pkgLock) {
+                tree.stop += 1;
+              } else {
+                tree.stop -= 1;
+              }
+            }
           }
         }
       }

@@ -138,6 +138,61 @@ describe( 'Package Tank', function () {
       pkgDef.onTraverse.should.not.have.been.called;
     });
 
+    describe( 'for multiple packages', function () {
+
+      var eventNames = [
+        'onBegin','onEnd','onEngage','onNode',
+        'onRelease','onScope','onTraverse',
+        'onTraversed','onTraversing'
+      ];
+
+      it( 'should be honored by other packages', function () {
+        pkgDef.onBegin = sinon.spy(function () {
+          this.tank.stop();
+        });
+        pkgDef.onScope = sinon.spy();
+        pkgDefB.onBegin = sinon.spy(function () {
+          // need way to see we're stopping
+          this.tank.go();
+        });
+
+        pkgInst.tank.go(1);
+
+        pkgDef.onBegin.should.have.been.calledOnce;
+        pkgDef.onScope.should.not.have.been.called;
+
+        pkgDefB.onBegin.should.have.been.calledOnce;
+
+        pkgInstB.tank.currentIndex.should.equal(0);
+      });
+
+      it( 'should only be reversable by the same package', function () {
+        pkgDef.onBegin = sinon.spy(function () {
+          this.tank.stop();
+        });
+        pkgDef.onEnd = sinon.spy(function () {
+          this.tank.go();
+        });
+        pkgDef.onScope = sinon.spy();
+
+        pkgDefB.onBegin = sinon.spy(function () {
+          // need way to see we're stopping
+          this.tank.go();
+        });
+
+        pkgInst.tank.go(1);
+
+        pkgDef.onBegin.should.have.been.calledOnce;
+        pkgDef.onScope.should.have.been.calledOnce;
+        pkgDef.onEnd.should.have.been.calledTwice;
+
+        pkgDefB.onBegin.should.have.been.calledOnce;
+
+        pkgInstB.tank.currentIndex.should.equal(1);
+      });
+
+    });
+
   });
 
   describe( '.post()', function () {
