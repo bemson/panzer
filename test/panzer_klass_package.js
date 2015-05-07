@@ -80,4 +80,135 @@ describe( 'Package', function () {
 
   });
 
+  describe( '::on()', function () {
+
+    it( 'should be chainable', function () {
+      pkgDef.on.should.be.a('function');
+      pkgDef.on().should.equal(pkgDef);
+      pkgDef.on(null).should.equal(pkgDef);
+      pkgDef.on('howdy').should.equal(pkgDef);
+      pkgDef.on('howdy', function () {}).should.equal(pkgDef);
+    });
+
+    it( 'should bind functions to panzer events', function () {
+      var
+        begin = sinon.spy(),
+        begin2 = sinon.spy(),
+        pkgInst = pkgDef(new Klass())
+      ;
+
+      pkgDef.on('begin', begin);
+      pkgInst.tank.go();
+
+      begin.should.have.been.calledOnce;
+
+      pkgDef.on('begin', begin2);
+      pkgInst.tank.go();
+
+      begin.should.have.been.calledTwice;
+      begin2.should.have.been.calledOnce;
+    });
+
+    it( 'should scope functions to the package instance', function () {
+      var
+        spy = sinon.spy(),
+        pkgInst = pkgDef(new Klass())
+      ;
+
+      pkgDef.on('begin', spy);
+      pkgInst.tank.go();
+
+      spy.should.have.been.calledOn(pkgInst);
+    });
+
+  });
+
+  describe( '::off()', function () {
+
+    it( 'should be chainable', function () {
+      pkgDef.off.should.be.a('function');
+      pkgDef.off().should.equal(pkgDef);
+      pkgDef.off(null).should.equal(pkgDef);
+      pkgDef.off('howdy').should.equal(pkgDef);
+      pkgDef.off('howdy', function () {}).should.equal(pkgDef);
+    });
+
+    it( 'should remove all binds, when called with no arguments', function () {
+      var
+        spy1 = sinon.spy(),
+        spy2 = sinon.spy(),
+        tank = pkgDef(new Klass()).tank
+      ;
+
+      pkgDef
+        .on('begin', spy1)
+        .on('traverse', spy2)
+      ;
+      tank.go(1);
+
+      spy1.should.have.been.called;
+      spy2.should.have.been.called;
+      spy1.reset();
+      spy2.reset();
+
+      pkgDef.off();
+
+      tank.go(1);
+
+      spy1.should.not.have.been.called;
+      spy2.should.not.have.been.called;
+    });
+
+    it( 'should remove related binds when only given an event', function () {
+      var
+        spy1 = sinon.spy(),
+        spy2 = sinon.spy(),
+        tank = pkgDef(new Klass()).tank
+      ;
+
+      pkgDef
+        .on('begin', spy1)
+        .on('begin', spy2)
+      ;
+      tank.go();
+
+      spy1.should.have.been.called;
+      spy2.should.have.been.called;
+      spy1.reset();
+      spy2.reset();
+
+      pkgDef.off('begin');
+
+      tank.go();
+
+      spy1.should.not.have.been.called;
+      spy2.should.not.have.been.called;
+    });
+
+    it( 'should remove the bind matching the given event and function', function () {
+      var
+        spy1 = sinon.spy(),
+        spy2 = sinon.spy(),
+        tank = pkgDef(new Klass()).tank
+      ;
+
+      pkgDef
+        .on('begin', spy1)
+        .on('begin', spy2)
+      ;
+      tank.go();
+
+      spy1.should.have.been.called;
+      spy2.should.have.been.called;
+      spy1.reset();
+      spy2.reset();
+
+      pkgDef.off('begin', spy1);
+      tank.go();
+      spy1.should.not.have.been.called;
+      spy2.should.have.been.called;
+    });
+
+  });
+
 });
