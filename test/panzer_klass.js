@@ -7,8 +7,8 @@ describe( 'Klass', function () {
   });
 
   it( 'should only be called as a constructor', function () {
-    expect(function () {Klass()}).to.throw();
-    expect(function () {new Klass()}).to.not.throw();
+    expect(function () {Klass();}).to.throw();
+    expect(function () {new Klass();}).to.not.throw();
   });
 
   it( 'should return an instance', function () {

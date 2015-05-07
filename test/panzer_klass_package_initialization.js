@@ -20,18 +20,24 @@ describe( 'Package initialization', function () {
   });
 
   it( 'should move the tank without firing events', function () {
-    var pkgInst;
+    var
+      pkgInst,
+      begin = sinon.spy(),
+      end = sinon.spy()
+    ;
     pkgDef.init = function () {
       this.tank.go(1);
     };
-    pkgDef.onBegin = sinon.spy();
-    pkgDef.onEnd = sinon.spy();
+    pkgDef.on('begin', begin);
+    pkgDef.on('end', end);
     pkgInst = pkgDef(new Klass());
     pkgInst.tank.currentIndex.should.equal(1);
-    pkgDef.onBegin.should.not.have.been.called;
-    pkgDef.onEnd.should.not.have.been.called;
+
+    begin.should.not.have.been.called;
+    end.should.not.have.been.called;
+
     pkgInst.tank.go(0);
-    pkgDef.onBegin.should.have.been.calledOnce;
+    begin.should.have.been.calledOnce;
   });
 
   it( 'should reference the public proxy (the Klass instance)', function () {

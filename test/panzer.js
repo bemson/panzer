@@ -12,7 +12,7 @@ describe( 'Panzer', function () {
     it( 'should return a Klass', function() {
       Panzer.create()
         .should.be.a('function')
-        .and.itself.respondTo('pkg')
+        .and.itself.respondTo('pkg');
     });
 
   });

@@ -42,35 +42,47 @@ describe( 'Package Tank', function () {
   });
 
   it( 'should reflect the target node index or -1', function () {
+    var begin;
+
     pkgInst.tank.targetIndex.should.equal(-1);
 
-    pkgDef.onBegin = sinon.spy(function () {
+    pkgDef.on('begin', begin = sinon.spy(function () {
       this.tank.targetIndex.should.not.equal(-1);
-    });
+    }));
     tank.go(1);
-    pkgDef.onBegin.should.have.been.called;
+    begin.should.have.been.called;
   });
 
   describe( '.go()', function () {
 
     it( 'should trigger package events', function () {
-      pkgDef.onEnd = sinon.spy();
+      var end = sinon.spy();
+
+      pkgDef.on('end', end);
+
       pkgInst.tank.go(1);
-      pkgDef.onEnd.should.have.been.calledOnce;
+      end.should.have.been.calledOnce;
+
       pkgInst.tank.go();
-      pkgDef.onEnd.should.have.been.calledTwice;
+      end.should.have.been.calledTwice;
     });
 
     it( 'should return the number of traverse/traversing events', function () {
-      var flag = 0;
-      pkgDef.onTraverse = pkgDef.onTraversing = sinon.spy(function () {
-        if (flag) {
-          this.tank.stop();
-        }
-      });
+      var
+        flag = 0,
+        hdlr = sinon.spy(function () {
+          if (flag) {
+            this.tank.stop();
+          }
+        })
+      ;
+
+      pkgDef.on('traverse', hdlr);
+      pkgDef.on('traversing', hdlr);
+
       tank.go(1);
       tank.go(1);
-      pkgDef.onTraverse.callCount.should.have.equal(3);
+      hdlr.callCount.should.have.equal(3);
 
       tank.go().should.equal(0);
     });
@@ -78,19 +90,20 @@ describe( 'Package Tank', function () {
     describe( 'while navigating', function () {
 
       it( 'should return true', function () {
-        pkgDef.onBegin = sinon.spy(function () {
+        var begin;
+        pkgDef.on('begin', begin = sinon.spy(function () {
           this.tank.go().should.be.true;
           this.tank.go(1).should.be.true;
           this.tank.go(-1).should.be.true;
-        });
+        }));
         tank.go(1);
-        pkgDef.onBegin.should.have.been.called;
+        begin.should.have.been.called;
       });
 
       it( 'should redirect the tank', function () {
-        pkgDef.onBegin = function () {
+        pkgDef.on('begin', function () {
           this.tank.go(4);
-        };
+        });
         tank.go(1);
         tank.currentIndex.should.equal(4);
       });
@@ -100,16 +113,23 @@ describe( 'Package Tank', function () {
     describe( 'while interrupted', function () {
 
       it( 'should resume without a target', function () {
-        pkgDef.onTraverse = sinon.spy(function () {
-          this.tank.stop();
-        });
-        pkgDef.onTraversing = sinon.spy();
-        pkgDef.onTraversed = sinon.spy();
+        var
+          traverse = sinon.spy(function () {
+            this.tank.stop();
+          }),
+          traversing = sinon.spy(),
+          traversed = sinon.spy()
+        ;
+        pkgDef.on('traverse', traverse);
+        pkgDef.on('traversing', traversing);
+        pkgDef.on('traversed', traversed);
+
         tank.go(0);
         tank.go();
-        pkgDef.onTraverse.should.have.been.calledOnce;
-        pkgDef.onTraversing.should.have.been.calledOnce;
-        pkgDef.onTraversed.should.have.been.calledOnce;
+
+        traverse.should.have.been.calledOnce;
+        traversing.should.have.been.calledOnce;
+        traversed.should.have.been.calledOnce;
       });
 
     });
@@ -119,23 +139,31 @@ describe( 'Package Tank', function () {
   describe( '.stop()', function () {
 
     it( 'should return true when navigating, otherwise false', function () {
+      var begin;
+
       tank.stop().should.be.false;
-      pkgDef.onBegin = sinon.spy(function () {
+      pkgDef.on('begin', begin = sinon.spy(function () {
         this.tank.stop().should.be.true;
-      });
+      }));
       tank.go();
-      pkgDef.onBegin.should.have.been.called;
+      begin.should.have.been.called;
     });
 
     it( 'should stop navigation', function () {
-      pkgDef.onTraverse = sinon.spy();
+      var
+        traverse = sinon.spy(),
+        engage
+      ;
 
-      pkgDef.onEngage = sinon.spy(function () {
+      pkgDef.on('traverse', traverse);
+      pkgDef.on('engage', engage = sinon.spy(function () {
         this.tank.stop();
-      });
+      }));
+
       tank.go(1);
-      pkgDef.onEngage.should.have.been.called;
-      pkgDef.onTraverse.should.not.have.been.called;
+
+      engage.should.have.been.called;
+      traverse.should.not.have.been.called;
     });
 
     describe( 'for multiple packages', function () {
@@ -147,48 +175,73 @@ describe( 'Package Tank', function () {
       ];
 
       it( 'should be honored by other packages', function () {
-        pkgDef.onBegin = sinon.spy(function () {
+        var
+          beginA,
+          scopeA,
+          beginB
+        ;
+        pkgDef.on('begin', beginA = sinon.spy(function () {
           this.tank.stop();
-        });
-        pkgDef.onScope = sinon.spy();
-        pkgDefB.onBegin = sinon.spy(function () {
+        }));
+        pkgDef.on('scope', scopeA = sinon.spy());
+        pkgDefB.on('begin', beginB = sinon.spy(function () {
           // need way to see we're stopping
           this.tank.go();
-        });
+        }));
 
         pkgInst.tank.go(1);
 
-        pkgDef.onBegin.should.have.been.calledOnce;
-        pkgDef.onScope.should.not.have.been.called;
-
-        pkgDefB.onBegin.should.have.been.calledOnce;
+        beginA.should.have.been.calledOnce;
+        scopeA.should.not.have.been.called;
+        beginB.should.have.been.calledOnce;
 
         pkgInstB.tank.currentIndex.should.equal(0);
       });
 
       it( 'should only be reversable by the same package', function () {
-        pkgDef.onBegin = sinon.spy(function () {
+        var
+          beginA,
+          beginA2,
+          beginB,
+          tank = pkgInst.tank
+        ;
+
+        pkgDef.on('begin', beginA = sinon.spy(function () {
           this.tank.stop();
-        });
-        pkgDef.onEnd = sinon.spy(function () {
+        }));
+
+        pkgDefB.on('begin', beginB = sinon.spy(function () {
           this.tank.go();
-        });
-        pkgDef.onScope = sinon.spy();
+        }));
 
-        pkgDefB.onBegin = sinon.spy(function () {
-          // need way to see we're stopping
+        // note we're not stopped
+        tank.targetIndex.should.equal(-1);
+
+        tank.go(1);
+
+        // note we're now stopped
+        tank.targetIndex.should.not.equal(-1);
+        beginA.should.have.been.calledOnce;
+        beginB.should.have.been.calledOnce;
+        beginA.should.have.been.calledBefore(beginB);
+
+        beginA.reset();
+        beginB.reset();
+
+        // add unlocking by the same package
+        pkgDef.on('begin', beginA2 = sinon.spy(function () {
           this.tank.go();
-        });
+        }));
 
-        pkgInst.tank.go(1);
+        tank.go();
 
-        pkgDef.onBegin.should.have.been.calledOnce;
-        pkgDef.onScope.should.have.been.calledOnce;
-        pkgDef.onEnd.should.have.been.calledTwice;
-
-        pkgDefB.onBegin.should.have.been.calledOnce;
-
-        pkgInstB.tank.currentIndex.should.equal(1);
+        // note we're not stopped
+        tank.targetIndex.should.equal(-1);
+        beginA.should.have.been.calledOnce;
+        beginA2.should.have.been.calledOnce;
+        beginB.should.have.been.calledOnce;
+        beginA.should.have.been.calledBefore(beginB);
+        beginA2.should.have.been.calledBefore(beginB);
       });
 
     });
@@ -206,17 +259,23 @@ describe( 'Package Tank', function () {
     describe( 'while navigating', function () {
 
       it( 'should invoke a functon (postback) once, when navigation ends', function () {
-        var postbackSpy = sinon.spy();
-        pkgDef.onBegin = function () {
+        var
+          postbackSpy = sinon.spy(),
+          end = sinon.spy()
+        ;
+        pkgDef.on('begin', function () {
           this.tank.post(postbackSpy);
-        };
-        pkgDef.onEnd = sinon.spy();
+        });
+        pkgDef.on('end', end);
         tank.go();
         postbackSpy.should.have.been.called;
-        pkgDef.onEnd.should.have.been.calledBefore(postbackSpy);
+        end.should.have.been.calledBefore(postbackSpy);
 
         postbackSpy.reset();
-        pkgDef.onBegin = pkgDef.onEnd = 0;
+        pkgDef
+          .off('begin')
+          .off('end')
+        ;
         tank.go();
         postbackSpy.should.not.have.been.called;
       });
@@ -226,12 +285,14 @@ describe( 'Package Tank', function () {
           spy = sinon.spy(),
           postId
         ;
-        pkgDef.onBegin = function () {
-          postId = this.tank.post(spy);
-        };
-        pkgDef.onEnd = function () {
-          this.tank.post(postId);
-        };
+        pkgDef
+          .on('begin', function () {
+            postId = this.tank.post(spy);
+          })
+          .on('end', function () {
+            this.tank.post(postId);
+          })
+        ;
         tank.go();
 
         postId.should.be.a('number');
@@ -239,12 +300,12 @@ describe( 'Package Tank', function () {
       });
 
       it( 'should return false when passed an invalid id or function', function () {
-        pkgDef.onBegin = function () {
+        pkgDef.on('begin', function () {
           var that = this;
           [-1, 100, '', 'foo', [], {}, true, false].forEach(function (arg) {
             that.tank.post(arg).should.be.false;
           });
-        };
+        });
         tank.go();
       });
 

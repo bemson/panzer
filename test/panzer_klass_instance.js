@@ -13,8 +13,8 @@ describe( 'Klass Instance (Proxy)', function () {
     barPkg = Klass.pkg('bar');
     fooPkg.proxy.hello = function () {};
     barPkg.proxy.world = function () {};
-    fooPkg.proxy.stub = function () {return false};
-    barPkg.proxy.stub = function () {return true};
+    fooPkg.proxy.stub = function () {return false;};
+    barPkg.proxy.stub = function () {return true;};
     proxy = new Klass();
   });
 

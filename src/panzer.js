@@ -17,6 +17,7 @@
       panzerInstanceCount = 0,
       postCallbackCount = 0,
       ObjecttoStringResult = ({}).toString(),
+      protoHas = Object.prototype.hasOwnProperty,
       // build node-tree
       genNodes = genData.spawn(
         function (name, value, parent, flags) {
@@ -114,7 +115,7 @@
 
             // copy non-tracking members from this node
             for (member in originalNode) {
-              if (originalNode.hasOwnProperty(member) && member !== 'lte' && member !== 'ctx') {
+              if (protoHas.call(originalNode, member) && member !== 'lte' && member !== 'ctx') {
                 node[member] = originalNode[member];
               }
             }
@@ -125,6 +126,71 @@
       ),
       r_hasAlphanumeric = /\w/
     ;
+
+
+    function isFullString(value) {
+      return value && typeof value === 'string';
+    }
+
+
+    // basic event emitter methods
+    // to be used as a suite
+
+    function OnEventer(evt, callback) {
+      var me = this;
+
+      if (
+        isFullString(evt) &&
+        typeof callback === 'function'
+      ) {
+        if (!protoHas.call(me, '_evts')) {
+          // init events hash
+          me._evts = {};
+        }
+        if (!protoHas.call(me._evts, evt)) {
+          // init event queue
+          me._evts[evt] = [];
+        }
+        // add callback to event queue
+        me._evts[evt].push(callback);
+      }
+      return me;
+    }
+
+    function OffEventer(evt, callback) {
+      var
+        me = this,
+        cbs,
+        cbLn,
+        argLn = arguments.length;
+
+      if (!protoHas.call(me, '_evts') || !argLn) {
+        // reset if clearing all events
+        me._evts = {};
+      } else if (
+        isFullString(evt) &&
+        protoHas.call(me._evts, evt)
+      ) {
+        cbs = me._evts[evt];
+        if (typeof callback == 'function') {
+          cbLn = cbs.length;
+          // remove the last matching callback only
+          while (cbLn--) {
+            if (cbs[cbLn] === callback) {
+              cbs.splice(cbLn, 1);
+              break;
+            }
+          }
+        }
+        // remove event queue if no callback or none left
+        if (argLn < 2 || !cbs.length) {
+          delete me._evts[evt];
+        }
+      }
+
+      return me;
+    }
+
 
     // private Tree instance
     function Tree(panzer, proxyInst, rawtree, klassConfig) {
@@ -236,7 +302,7 @@
               tree.posts[++postCallbackCount] = param;
               return postCallbackCount;
             } else if (paramType === 'number') {
-              if (tree.posts.hasOwnProperty(param)) {
+              if (protoHas.call(tree.posts, param)) {
                 // remove callback with this id
                 delete tree.posts[param];
                 return true;
@@ -476,7 +542,7 @@
 
         // execute post-loop callback functions
         for (postId in tree.posts) {
-          if (tree.posts.hasOwnProperty(postId)) {
+          if (protoHas.call(tree.posts, postId)) {
             tree.posts[postId].call(scope);
           }
         }
@@ -488,23 +554,56 @@
       fire: function (eventName) {
         var
           tree = this,
-          handlerName = 'on' + eventName.charAt(0).toUpperCase() + eventName.substr(1),
-          handlerArgs = arguments,
           pkgIdx = 0,
           pkgEntry,
-          pkgCallback,
-          pkgLock
+          pkgDef,
+          pkgInst,
+          pkgLock,
+          params = arguments,
+          cbQueue,
+          cbQueueLn,
+          cbIdx,
+          invoker
         ;
-        // fire event on class
-        // execute each package's callback
-        for (; pkgEntry = this.pkgs[pkgIdx]; pkgIdx++) {
-          pkgCallback = pkgEntry.pkg.def[handlerName];
-          if (pkgCallback && typeof pkgCallback == 'function') {
+
+        if (params.length) {
+          invoker = function (cb) {
+            cb.apply(pkgInst, params);
+          };
+        } else {
+          invoker = function (cb) {
+            cb.call(pkgInst, eventName);
+          };
+        }
+
+        // fire event on definition
+        // execute each package's callback queue
+        for (; pkgEntry = tree.pkgs[pkgIdx]; pkgIdx++) {
+          // alias the package definition
+          pkgDef = pkgEntry.pkg.def;
+
+          // execute subscribers
+          if (
+            protoHas.call(pkgDef, '_evts') &&
+            protoHas.call(pkgDef._evts, eventName)
+          ) {
+            // alias callback queue
+            cbQueue = pkgDef._evts[eventName];
+            cbQueueLn = cbQueue.length;
+
+            // capture pkg instance
+            pkgInst = pkgEntry.inst;
+
             // copy current package lock flag
             pkgLock =
             tree.pstop =
               pkgEntry.lock;
-            pkgCallback.apply(pkgEntry.inst, handlerArgs);
+
+            // invoke event subscribers from this package
+            for (cbIdx = 0; cbIdx < cbQueueLn; cbIdx++) {
+              invoker(cbQueue[cbIdx]);
+            }
+
             // if the package lock has changed...
             if (pkgLock != tree.pstop) {
               // capture new package lock
@@ -537,7 +636,7 @@
         if (typeof pkgName === 'string' && r_hasAlphanumeric.test(pkgName)) {
 
           // create non-existent package
-          if (!panzer.pkgsIdx.hasOwnProperty(pkgName)) {
+          if (!protoHas.call(panzer.pkgsIdx, pkgName)) {
 
             // define a package definition function, which returns the private instance of it's public proxy
             function Pkg(proxyInst) {
@@ -548,19 +647,14 @@
             }
             Pkg.getSuper = panzer.getSuper;
 
-            // init all package members
+            // add emitter methods
+            Pkg.on = OnEventer;
+            Pkg.off = OffEventer;
+
+            // init package members
             Pkg.init =             // initializer for this package
             Pkg.attrKey =          // what defines tag/node-attribute
             Pkg.badKey =           // what a node may not be named
-            Pkg.onBegin =          // callback before navigating
-            Pkg.onEnd =            // callback after navigating
-            Pkg.onNode =           // callback when the current node changes
-            Pkg.onEngage =         // callback before a node begins traversing and/or scoping
-            Pkg.onRelease =        // callback after a node completes traversing and/or scoping
-            Pkg.onScope =          // callback when a node is entered or exited
-            Pkg.onTraverse =       // callback when node traversal begins
-            Pkg.onTraversing =     // callback when node traversal resumes
-            Pkg.onTraversed =      // callback when node traversal ends
             Pkg.prepTree =         // alter the entire tree before compilation
             Pkg.prepNode =         // alter a node during compilation
               0;
@@ -653,7 +747,7 @@
 
         return Klass;
       },
-      version: '0.3.10'
+      version: '0.3.13'
     };
   }
 

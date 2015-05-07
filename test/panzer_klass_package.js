@@ -26,7 +26,7 @@ describe( 'Package', function () {
       .forEach(function (arg) {
         expect(new pkgDef(arg)).to.be.empty;
       });
-     expect(new pkgDef()).to.be.empty;    
+     expect(new pkgDef()).to.be.empty;
   });
 
   it( 'should reflect the zero-based position of a package', function () {
@@ -74,7 +74,7 @@ describe( 'Package', function () {
         pkgDef.getSuper(arg);
       });
       spy.returnValues
-        .every(function (val) {return typeof val === 'function'})
+        .every(function (val) {return typeof val === 'function';})
         .should.be.ok;
     });
 
