@@ -40,11 +40,6 @@ describe( 'Package', function () {
     Klass.pkg().indexOf('b').should.equal(pkgB.index);
   });
 
-  it ('should reflect it\'s own label', function () {
-    pkgDef.should.include.key('label');
-    pkgDef.label.should.equal('a');
-  });
-
   describe( '::getSuper()', function () {
 
     it( 'should retrieve the next method "up" the package-chain', function () {

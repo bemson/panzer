@@ -658,7 +658,6 @@
             Pkg.prepTree =         // alter the entire tree before compilation
             Pkg.prepNode =         // alter a node during compilation
               0;
-            Pkg.label = pkgName;
 
             function PkgProxyForKlass() {}
             // extend current public protoype chain
@@ -673,13 +672,17 @@
             Pkg.node = PkgNodeModel.prototype;
 
             // register this package for this panzer, by name and index
-            pkgIdx = Pkg.index = panzer.pkgsIdx[pkgName] = panzer.pkgs.push({
-              name: pkgName,
-              idx: panzer.pkgs.length,
-              def: Pkg,
-              proxy: PkgProxyForKlass,
-              node: PkgNodeModel
-            }) - 1;
+            pkgIdx =
+            Pkg.index =
+            panzer.pkgsIdx[pkgName] =
+              panzer.pkgs.push({
+                name: pkgName,
+                idx: panzer.pkgs.length,
+                def: Pkg,
+                proxy: PkgProxyForKlass,
+                node: PkgNodeModel
+              }) - 1;
+            panzer.defs.push(panzer.pkgs[panzer.pkgs.length - 1].def);
           }
           // return package definition
           return panzer.pkgs[panzer.pkgsIdx[pkgName]].def;
@@ -706,6 +709,7 @@
           panzer = {
             pkgs: [],
             pkgsIdx: {},
+            defs: [],
             KlassProxy: function () {},
             Klass: Klass,
             // shared package-definition method
@@ -713,15 +717,18 @@
             getSuper: function (methodName) {
               // "this" is the package-definition
               var
-                pkg = panzer.pkgs[panzer.pkgsIdx[this.label] - 1],
+                pkgEntryIdx = panzer.defs.indexOf(this),
+                pkgEntry,
                 pkgInst
               ;
-
-              // search prototype from this point in the chain
-              if (pkg && methodName && typeof methodName === 'string') {
-                pkgInst = new pkg.proxy();
-                if (typeof pkgInst[methodName] === 'function') {
-                  return pkgInst[methodName];
+              if (~pkgEntryIdx) {
+                pkgEntry = panzer.pkgs[pkgEntryIdx - 1];
+                // search prototype from this point in the chain
+                if (pkgEntry && methodName && typeof methodName === 'string') {
+                  pkgInst = new pkgEntry.proxy();
+                  if (typeof pkgInst[methodName] === 'function') {
+                    return pkgInst[methodName];
+                  }
                 }
               }
 
