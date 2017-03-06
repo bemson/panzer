@@ -1,0 +1,96 @@
+- PROPERTIES
+
+attrKey
+
+badKey
+
+prepNode
+
+initWithTree
+
+allowClone
+
+proxyFn
+
+nodeFn
+
+index
+
+- METHODS
+
+getSuper
+
+on
+
+off
+
+- EVENTS
+
+init
+> config
+
+intercept 0
+> path
+> event
+  > type
+  > params
+> calls
+
+begin 0
+  > resume
+
+move 1
+> array of nodes to navigate
+
+switch / resume-switch 2
+ > from
+ > to
+
+engage 3
+
+scope / resume-scope 4
+ > entering
+
+traverse / resume-traverse 5
+ > phase
+ > arrived
+
+release 6
+
+idle 7
+> array of nodes to navigate
+
+end 8
+> time in loop
+
+PACKAGE EVENT OBJECT
+
+id - identifier of the tank that triggered this event
+
+type - the event name (i.e., "intercept")
+
+stack - array of events hosting this one
+
+targetIndex - index of the navigation target
+
+targetPath - the navigation destination
+
+handlers - number of event handlers from this package
+
+count - event occurrence counts
+
+	inst - occurrences on this instance
+
+	node - occurrences on this node
+
+	nav - occurrences while navigating
+
+	path - occurrences while navigating this path
+
+host
+
+	pkg - the name of the package that triggered this event
+
+	inst - the package instance that triggered this event
+
+	event - the event hosting this event (similar to the call stack)

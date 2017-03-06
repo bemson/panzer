@@ -1,0 +1,55 @@
+<html>
+<head>
+  <script src="augment.min.js"></script>
+  <script src="promise.min.js"></script>
+  <script>
+  if (!Array.prototype.fill) {
+    Array.prototype.fill = function (val) {
+      var ary = this, i = 0, ln = ary.length;
+      for (; i < ln; i++) {
+        ary[i] = val;
+      }
+      return ary;
+    };
+  }
+  </script>
+  <script src="src/panzer.js"></script>
+  <script>
+Flow = Panzer.create();
+pkgDef = Flow.pkg('debug');
+proxy = new Flow({a:{b:{c:1, d:2}}});
+pkgInst = pkgDef(proxy);
+tank = pkgInst.tank;
+
+pkgDef(
+  ['begin', 'end', 'move', 'idle', 'engage', 'release', 'switch', 'traverse'],
+  function (e) {
+    console.log('trip #' + e.trip);
+  }
+);
+
+tank.go(1);
+
+pkgDef.on('begin', function tmp() {
+  pkgDef.off('begin', tmp);
+  return new Promise(function (r) {
+    setTimeout(function () {
+      r();
+    }, 3000);
+  });
+});
+
+tank.go(2).then(function (t) {
+  console.log('done at 2?', t);
+});
+
+console.log('index afer heading to 2', tank.index);
+
+tank.go(0).then(function (t) {
+  console.log('done with 0?', t);
+});
+console.log('index afer heading to 0', tank.index);
+  </script>
+</head>
+<body></body>
+</html>

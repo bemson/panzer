@@ -1,0 +1,20 @@
+{
+    "strict": false,
+    "expr": true,
+    "boss": true,
+    "node": true,
+    "browser": true,
+    "devel": true,
+    "unused": true,
+    "predef": [
+        "Panzer",
+        "describe",
+        "expect",
+        "it",
+        "before",
+        "beforeEach",
+        "after",
+        "afterEach",
+        "sinon"
+    ]
+}

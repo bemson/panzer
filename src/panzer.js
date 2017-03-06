@@ -5,16 +5,18 @@
  * Copyright 2012, Bemi Faison
  * Released under the MIT License
  */
-!function (inAMD, inCJS, Object, RegExp, Promise, scope, undefined) {
+!function (inAMD, inCJS, Array, Object, RegExp, Error, Promise, scope, undefined) {
 
   // dependent module initializer
   function initPanzer() {
     var
       hasKey = Function.prototype.call.bind(Object.prototype.hasOwnProperty),
+      panzerEventCount = 0,
       klassId = 0,
       klassInstCnt = 0,
       eventStack = [],
       ObjectToStringResult = ({}).toString(),
+      isArray = Array.isArray,
       r_rxpChars = /([\$\^\-\*\|\{\[\.\(\?])/g,
       eventNameMap = [
         'intercept',
@@ -32,6 +34,12 @@
         'traverse-resume',
         'init'
       ],
+      nodeSwitchMap = [
+        'parentIndex',
+        'firstChildIndex',
+        'nextIndex',
+        'previousIndex'
+      ],
       INTERCEPT = 0,
       BEGIN = 1,
       MOVE = 2,
@@ -39,15 +47,25 @@
       RELEASE = 4,
       IDLE = 5,
       END = 6,
-      SCOPE = 7,
-      SWITCH = 9,
+      SWITCH = 7,
+      SCOPE = 9,
       TRAVERSE = 11,
-      INIT = 13
+      INIT = 13,
+      moveSwitchParent = 1,
+      moveSwitchFirstChild = 2,
+      moveSwitchRightSibling = 3,
+      moveSwitchLeftSibling = 4,
+      moveTraverseOn = 5,
+      moveTraverseIn = 6,
+      moveTraverseOut = 7,
+      moveTraverseOver = 8,
+      moveTraverseBover = 9,
+      moveScopeOut = 10,
+      moveScopeIn = 11
     ;
 
 
     // UTILITY
-
 
     function isFullString(value) {
       return value && typeof value === 'string';
@@ -136,13 +154,19 @@
     function onEventer(evt, callback) {
       var me = this;
 
-      if (isFullString(evt) && isFunction(callback)) {
-        if (!hasKey(me._evts, evt)) {
-          // init event queue
-          me._evts[evt] = [];
+      if (isFunction(callback)) {
+        if (isArray(evt)) {
+          evt.forEach(function (e) {
+            onEventer.call(me, e, callback);
+          });
+        } else if (isFullString(evt)) {
+          if (!hasKey(me._evts, evt)) {
+            // init event queue
+            me._evts[evt] = [];
+          }
+          // add callback to event queue
+          me._evts[evt].push(callback);
         }
-        // add callback to event queue
-        me._evts[evt].push(callback);
       }
       return me;
     }
@@ -155,9 +179,13 @@
         argLn = arguments.length
       ;
 
-      if (!hasKey(me, '_evts') || !argLn) {
+      if (!argLn || !hasKey(me, '_evts')) {
         // reset if clearing all events
         me._evts = {};
+      } else if (isArray(evt)) {
+        evt.forEach(function (e) {
+          offEventer.call(me, e, callback);
+        });
       } else if (
         isFullString(evt) &&
         hasKey(me._evts, evt)
@@ -182,42 +210,49 @@
       return me;
     }
 
-    function fireTreeEvent(tree, eventIdx, params, tally, eid) {
+    function fireTreeEvent(tree, eventIndex, params, tally) {
       var
-        curNode = tree.current,
-        curIndex = curNode.index,
-        eventName = eventNameMap[eventIdx],
+        eventName = eventNameMap[eventIndex],
+        alreadyBlocked = !!isBlocked(tree),
         eventObj = {
-          // tank id
-          id: tree.tank.id,
+          // identifier of this event across all Panzer Klass events
+          id: ++panzerEventCount,
+          // number of this event for the instance
+          order: ++tree.en,
+          // id of the corresponding tank
+          tid: tree.id,
           // count of this journey
           trip: tree.tc,
           // count of legs in this journey
           leg: tree.lc,
           // source instruction count
-          order: tree.ic,
+          command: tree.cc,
           // the event type
           type: eventName,
-          // the target node index during this event
-          targetIndex: tree.tank.targetIndex,
-          // the target path during this event
-          targetPath: curNode.path,
+          // the index of this event
+          index: tree.current.index,
+          // the path of this event
+          path: tree.current.path,
+          // the depth of this event
+          depth: tree.current.depth,
           // snap the event stack
           stack: eventStack.concat(),
           // the proxy instance corresponding this event
           proxy: tree.pxy,
           // event counts
-          tally: tally
+          tally: tally,
+          // event history
+          trail: tree.trail.concat()
         },
         fnResults = [],
-        lastHold = tree.holds[eid],
         pkgs = tree.pkgs,
         pkgIdx = 0,
         promising = 0,
+        promise,
         pkgEntry,
         pkgDef,
         fns,
-        fnLn,
+        fnsLn,
         fnIdx,
         fnResult
       ;
@@ -226,6 +261,8 @@
       eventStack.unshift(eventObj);
       // prepend event to params
       params.unshift(eventObj);
+      // add to trail for next event
+      tree.trail.unshift(eventObj);
 
       // with each tree package...
       for (; pkgEntry = pkgs[pkgIdx]; pkgIdx++) {
@@ -236,9 +273,11 @@
         // if this event is registered...
         if (hasKey(pkgDef._evts, eventName)) {
 
-          // alias the callback queue and length
-          fns = pkgDef._evts[eventName];
-          fnLn = fns.length;
+          // copy the callback queue
+          fns = pkgDef._evts[eventName].concat();
+
+          // get number of callbacks
+          fnsLn = fns.length;
 
           // capture and expose the package instance
           tree.pkg = pkgEntry.inst;
@@ -251,18 +290,30 @@
           tree.pkgIdx = pkgIdx;
 
           // with each package callback...
-          for (fnIdx = 0; fnIdx < fnLn; fnIdx++) {
+          for (fnIdx = 0; fnIdx < fnsLn; fnIdx++) {
             // invoke and capture the return value
             fnResults[fnResults.length] =
             fnResult =
               fns[fnIdx].apply(pkgEntry.inst, params);
 
-            // if not already promising, and the result is a promise...
-            if (!promising && isPromise(fnResult)) {
-              // flag that we're promising
-              promising = 1;
-              // automatically lock tree
-              tree.lock();
+            // update event when...
+            if (
+              // the result is our first promise, or ...
+              (
+                !promising &&
+                typeof fnResult === 'object' &&
+                (promising = isPromise(fnResult))
+              ) ||
+              // we're newly blocked...
+              (!alreadyBlocked && isBlocked(tree))
+            ) {
+              // flag that we're blocked
+              alreadyBlocked =
+              // update `blocked` flag
+              tree.tank.blocked =
+                true;
+              // force stop the tree
+              ++tree.stop;
             }
           }
         }
@@ -271,35 +322,289 @@
       // remove this event from the stack
       eventStack.shift();
 
-      // if there was at least one promise...
+      // if at least one promise was returned...
       if (promising) {
-        // if there is an existing hold for this event id...
-        if (lastHold) {
-          // add this instruction count
-          lastHold[0].push(tree.ic);
-          // add additional promise(s)
-          lastHold[1] = lastHold[1].concat(fnResults);
-        } else { // (otherwise) when there's no existing hold...
-          // alias and create new hold
-          lastHold =
-          tree.holds[eid] =
-            [
-              // instruction calls that got delayed
-              [tree.ic],
-              // blocking promise(s) - mixed with values
-              fnResults
-            ];
-        }
-
+        // create summary promise
+        promise = Promise.all(fnResults);
+        // block navigation
+        tree.tank.block(promise, true);
         // return summary promise
-        return Promise.all(lastHold[1]);
+        return promise;
       }
 
       // (otherwise) just return the results
       return fnResults;
     }
 
+    // NAVIGATION
+
+    function isBlocked(tree) {
+      var
+        blocks = tree.b,
+        curIdx = tree.current.index,
+        nxtIdx
+      ;
+
+      // return truthy when this node has a block, or ...
+      return blocks[curIdx] ||
+        // the next node is blocked (if any)
+        (~(nxtIdx = getNextIndex(tree)) ? blocks[nxtIdx] : false);
+    }
+
+    function getSwitchIndex(node, nextMove) {
+      return node[nodeSwitchMap[nextMove - 1]];
+    }
+
+    function getNextIndex(tree, curIdx, tgtIdx) {
+      var
+        argLn = arguments.length,
+        nodes = tree.nodes,
+        // start from having landed on the current index
+        nextMove = moveTraverseOn,
+        curNode
+      ;
+
+      // if no current index...
+      if (argLn < 2) {
+        // use current node's index
+        curIdx = tree.current.index;
+        // if no target index...
+        if (argLn < 3) {
+          // exit early, if no target...
+          if (!tree.target) {
+            return -1;
+          }
+          // use the target node's index
+          tgtIdx = tree.target.index;
+        }
+      }
+
+      // exit early, if indexes are the same
+      if (curIdx === tgtIdx) {
+        return -1;
+      }
+
+      curNode = nodes[curIdx];
+      tgtNode = nodes[tgtIdx];
+
+      // step until we have a switch move
+      while (nextMove > moveSwitchLeftSibling) {
+        nextMove = calcNextMove(nodes, curNode, tgtNode, nextMove);
+      }
+
+      return getSwitchIndex(curNode, nextMove);
+    }
+
+    function getNextMove(tree) {
+      return calcNextMove(
+        tree.nodes,
+        tree.current,
+        tree.target,
+        tree.lastMove
+      );
+    }
+
+    function calcNextMove(nodes, curNode, tgtNode, lastMove) {
+      var
+        tgtIdx = tgtNode.index,
+        curIdx = curNode.index,
+        tgtPath = tgtNode.path,
+        nextMove
+      ;
+
+      // if on the target node...
+      if (curIdx === tgtIdx) {
+
+        if (
+          lastMove === moveSwitchParent ||
+          lastMove === moveTraverseIn ||
+          lastMove === moveTraverseOn
+        ) {
+          nextMove = moveTraverseOn;
+        } else {
+          nextMove = headIn(lastMove);
+        }
+
+      } else if (curIdx && tgtIdx) { // if the current and target nodes are not null...
+
+        // if the target does not contain the current path...
+        if (tgtPath.indexOf(curNode.path)) {
+          // if the target does not contain the parent's path...
+          if (tgtPath.indexOf(nodes[curNode.parentIndex].path)) {
+            nextMove = navUp(lastMove);
+          } else {
+            if (tgtIdx > curIdx) {
+              nextMove = navRight(lastMove);
+            } else {
+              nextMove = navLeft(lastMove);
+              if (
+                nextMove === moveSwitchLeftSibling &&
+                !curNode.childIndex
+              ) {
+                nextMove = moveSwitchParent;
+              }
+            }
+          }
+        } else {
+          // when the target contains the current path
+          nextMove = navDown(lastMove);
+        }
+
+      } else if (tgtIdx) { // when the current node is the null node...
+        nextMove = navDown(lastMove);
+      } else { // when the target node is the null node...
+        nextMove = navUp(lastMove);
+      }
+
+      return nextMove;
+    }
+
+    function headIn(lastMove) {
+      var nextMove;
+
+      if (
+        // just scoped out
+        lastMove === moveScopeOut ||
+        // some switch event
+        lastMove < moveTraverseOn
+      ) {
+        nextMove = moveScopeIn;
+      } else if (
+        // just traversed out
+        lastMove === moveTraverseOut ||
+        // just scoped in
+        lastMove === moveScopeIn
+      ) {
+        nextMove = moveTraverseIn;
+      }
+
+      return nextMove;
+    }
+
+    function headOut(lastMove) {
+      var nextMove;
+
+      if (
+        lastMove === moveTraverseIn ||
+        lastMove === moveTraverseOn ||
+        lastMove === moveSwitchParent
+      ) {
+        nextMove = moveTraverseOut;
+      } else if (
+        lastMove === moveTraverseOut ||
+        lastMove === moveScopeIn
+      ) {
+        nextMove = moveScopeOut;
+      }
+
+      return nextMove;
+    }
+
+    function navUp(lastMove) {
+      var nextMove;
+
+      if (
+        lastMove === moveScopeOut ||
+        lastMove === moveSwitchFirstChild ||
+        lastMove === moveTraverseBover
+      ) {
+        nextMove = moveSwitchParent;
+      } else {
+        nextMove = headOut(lastMove);
+      }
+
+      return nextMove;
+    }
+
+    function navDown(lastMove) {
+      var nextMove;
+
+      if (
+        lastMove === moveTraverseIn ||
+        lastMove === moveTraverseOn
+      ) {
+        nextMove = moveSwitchFirstChild;
+      } else {
+        nextMove = headIn(lastMove);
+      }
+
+      return nextMove;
+    }
+
+    function navLeft(lastMove) {
+      var nextMove;
+
+      if (
+        lastMove === moveTraverseOver ||
+        lastMove === moveSwitchLeftSibling
+      ) {
+        nextMove = moveTraverseBover;
+      } else if (
+        lastMove === moveTraverseBover ||
+        lastMove === moveScopeOut ||
+        lastMove === moveSwitchParent
+      ) {
+        nextMove = moveSwitchLeftSibling;
+      } else {
+        nextMove = headOut(lastMove);
+      }
+
+      return nextMove;
+    }
+
+    function navRight(lastMove) {
+      var nextMove;
+
+      if (
+        lastMove === moveTraverseBover ||
+        lastMove === moveSwitchRightSibling ||
+        lastMove === moveSwitchFirstChild
+      ) {
+        nextMove = moveTraverseOver;
+      } else if (
+        lastMove === moveTraverseOver ||
+        lastMove === moveScopeOut ||
+        lastMove === moveSwitchParent
+      ) {
+        nextMove = moveSwitchRightSibling;
+      } else {
+        nextMove = headOut(lastMove);
+      }
+
+      return nextMove;
+    }
+
     // DOMAIN
+
+    // returns the tree instance
+    function getTree(obj) {
+      var tree = obj && hasKey(obj, 'toString') && obj.toString();
+
+      // if this is a tree instance...
+      if (tree && is(tree, Tree)) {
+        return tree;
+      }
+    }
+
+    function reportCompletion(tree) {
+      var
+        instructions = tree.ics,
+        current = tree.current.index,
+        i = 0,
+        j = instructions.length,
+        instruction
+      ;
+      // clear tree instructions
+      tree.ics = [];
+
+      for (; i < j; i++) {
+        instruction = instructions[i];
+        // add flag if the target was met
+        instruction.o.success = current === instruction.o.to;
+        // resolve the pending promise with report
+        instruction.r(instruction.o);
+      }
+    }
 
     function resultIsNotfalse(result) {
       return result !== false;
@@ -330,27 +635,6 @@
       return tickEventTally(nodes[nodeIndex], eventIndex);
     }
 
-    // shared package method for retrieving node attributes
-    function getTreeNodeAttributes(index) {
-      var tree = this;
-
-      // if not a number...
-      if (typeof index !== 'number') {
-        index = tree.current.index;
-      } else if ( // (otherwise) if the index is...
-        // outside a valid node index, or...
-        index < 0 || index >= nodesLn ||
-        // not a whole number...
-        ~~index !== index
-      ) {
-        // exit early as failed request
-        return false;
-      }
-
-      // (otherwise) return attributes of the target node
-      return tree.nodes[index].attrs;
-    }
-
     function getInitialNodes(source) {
       var
         nullNode = initTreeNodeMembers({}),
@@ -360,6 +644,7 @@
       nullNode.name = 'PNULL';
       nullNode.path = '..//';
       nullNode.children[0] = 1;
+      nullNode.parentIndex = -1;
 
       rootNode.name = 'PROOT';
       rootNode.value = source;
@@ -386,7 +671,6 @@
       node.children = [];
 
       // init properties (for faster lookups)
-      node.parentIndex =
       node.previousIndex =
       node.nextIndex =
       node.firstChildIndex =
@@ -442,7 +726,7 @@
         return cache[name];
       }
 
-      function resolveNodeValue(value) {
+      function resolveNodeValue(val) {
         var
           fauxParent = {
             name: parent.name,
@@ -458,7 +742,7 @@
           function (prepNodeFn) {
             return prepNodeFn(
               name,               // node key
-              value,              // node value
+              val,                // node value
               proposedIndex,      // proposed index
               proposedDepth,      // proposed depth
               fauxParent,         // parent detail
@@ -577,7 +861,7 @@
         initTreeNodeMembers(node);
 
         // add to nodes
-        node.index = nodes.push(node);
+        node.index = nodes.push(node) - 1;
 
         if (!parent.children.length) {
           parent.firstChildIndex = node.index;
@@ -588,7 +872,7 @@
         // update younger sibling
         if (node.childIndex) {
           node.previousIndex = parent.children[node.childIndex - 1];
-          nodes[node.previousIndex - 1].nextIndex = node.index;
+          nodes[node.previousIndex].nextIndex = node.index;
         }
 
         if (hasResolverFns) {
@@ -678,68 +962,15 @@
 
     function finishTreeInit(tree, nodes, done) {
       var
-        panzer = tree.pzr,
         nodesLn = nodes.length,
         proxy = tree.pxy,
-        proxyToString = proxy.toString,
-        pkgProxyKeys = proxy.pkgs,
-        pkgInstKeys = {},
-        sharedNodeAttrGetter = getTreeNodeAttributes.bind(tree),
         rslt
       ;
-
-      // shared caching node retrival per package instance
-      function retrieveOrCloneNode(index) {
-        var
-          pkgInst = this,
-          pkgNodes = pkgInst.nodes
-        ;
-
-        // if not a number...
-        if (typeof index !== 'number') {
-          index = tree.current.index;
-        }
-
-        // if there is a cached node...
-        if (pkgNodes[index]) {
-          // return early, now
-          return pkgNodes[index];
-        }
-
-        // (otherwise) when the given index is...
-        if (
-          // outside the range, or...
-          index < 0 || index > nodesLn - 1 ||
-          // not a whole number...
-          ~~index !== index
-        ) {
-          // exit early as failed request
-          return;
-        }
-
-        // (otherwise) clone, cache and return a package node
-        return pkgNodes[index] =
-          mix(
-            new panzer.pkgs[pkgInst._pi].node(),
-            nodes[index]
-          );
-      }
 
       // use nodes as tree
       tree.nodes = nodes;
       // target the first as the current one
       tree.current = nodes[0];
-
-      // create context index for nodes
-      tree.ctx = new Array(nodesLn);
-      tree.ctx.fill(-1);
-      // create last event index for nodes
-      tree.lte = new Array(nodesLn);
-      tree.lte.fill(-1);
-
-      // fix the `ctx` and `lte` flags of the "null" index
-      tree.ctx[0] = 1;
-      tree.lte[0] = 0;
 
       // init event tallies
       tree.et = [
@@ -750,55 +981,16 @@
         0                     // leg
       ];
 
-      // compose tree package instances
-      tree.pkgs = panzer.pkgs.map(function (panzerPkg, pkgIdx) {
-        var
-          pkgName = panzerPkg.name,
-          pkgDef = panzerPkg.def,
-          pkgInst = new pkgDef(),
-          // tree package confguration
-          treePkg = {
-            name: pkgName,
-            idx: pkgIdx,
-            pkg: panzerPkg,
-            inst: pkgInst,
-            lock: 0
-          },
-          pkgProxyInst
-        ;
+      // init blocked nodes indice
+      tree.b = new Array(nodesLn);
+      // zero out block counts
+      tree.b.fill(0);
+      // init shared nodes index
+      tree.sN = new Array(nodesLn);
 
-        // define constructor to mirror this package's proxy prototype
-        function pkgProxyFn() {}
-        pkgProxyFn.prototype = new panzerPkg.proxy();
-
-        // index instances for sharing
-        pkgProxyInst =
-        pkgProxyKeys[pkgName] =
-        treePkg.proxy =
-          new pkgProxyFn();
-        pkgInstKeys[pkgName] = pkgInst;
-
-        // compose package-proxy
-        pkgProxyInst.pkgs = pkgProxyKeys;
-        pkgProxyInst.toString = proxyToString;
-
-        // compose package-instance
-        pkgInst._pi = pkgIdx;
-        pkgInst.pkgs = pkgInstKeys;
-        pkgInst.tank = tree.tank;
-        pkgInst.proxy = proxy;
-        pkgInst.getNode = retrieveOrCloneNode;
-        pkgInst.getNodeAttribute = sharedNodeAttrGetter;
-
-        // if this package expects a cloned tree...
-        if (panzerPkg.initWithTree) {
-          pkgInst.nodes = cloneNodes(nodes, panzerPkg.node);
-        } else {
-          // init empty tree of nodes
-          pkgInst.nodes = new Array(nodesLn);
-        }
-
-        return treePkg;
+      // clone nodes for this package
+      tree.pkgs.forEach(function (treePkg) {
+        treePkg.inst.nodes = cloneNodes(nodes);
       });
 
       // allow packages to initialize their classes
@@ -806,33 +998,34 @@
       rslt = fireTreeEvent(
         tree,         // instance
         INIT,         // event
-        [tree.cfg],   // params
+        [tree.j],     // params - the user's package config object
         {             // fake tally
-          instance: 1,
+          proxy: 1,
           node: 1,
           trip: 0,
           path: 0,
           leg: 0
-        },
-        INIT          // fake event identifier
+        }
       );
 
-      // remove config key - no longer needed
-      delete tree.cfg;
+      // delete "junk" key - now that we're initialized
+      delete tree.j;
 
       // if returned a promise...
       if (isPromise(rslt)) {
-        // cleanup fake hold (from `fireEventTree` logic)
-        delete tree.holds[INIT];
         // complete initialization later
         rslt.then(function () {
+          // flag that tree is ready
+          tree.ret = 'now';
+          // fulfill initialization promise
           done(proxy);
         });
       } else {
+        // flag that tree is ready
+        tree.ret = 'now';
         // complete initialization now
         done(proxy);
       }
-
     }
 
     // get or create package for a Panzer Klass
@@ -841,90 +1034,101 @@
         panzer = this,
         Pkg,
         PkgProxyForKlass,
-        PkgNode,
         pkgIdx
       ;
 
-      // if given a valid package name...
-      if (typeof pkgName === 'string' && /\w/.test(pkgName)) {
+      // if passed anything...
+      if (arguments.length) {
 
-        // create non-existent package
-        if (!hasKey(panzer.pkgsIdx, pkgName)) {
+        // if given a valid package name...
+        if (typeof pkgName === 'string' && /\w/.test(pkgName)) {
 
-          // define a package definition function
-          // use to retrieve the package corresponding a proxy instance
-          Pkg = function (proxyInst) {
-            var tree = is(proxyInst, PkgProxyForKlass) && proxyInst.toString(panzer);
-            // if we have a private tree...
-            if (tree) {
+          // create non-existent package
+          if (!hasKey(panzer.pkgsIdx, pkgName)) {
 
-              // when this package exists, return it's instance
-              if (pkgIdx < tree.pkgs.length) {
+            // define a package definition function
+            // use to retrieve the package corresponding a proxy, package, or tank instance
+            Pkg = function (obj) {
+              var tree;
+
+              // if invoked with new...
+              if (is(this, Pkg)) {
+                // exit early
+                return;
+              }
+
+              // extract private tree from object
+              tree = getTree(obj);
+
+              // when we have a tree with this package, from the same Klass...
+              if (tree &&
+                tree.pkgs &&
+                pkgIdx < tree.pkgsLn &&
+                tree.pzr === panzer &&
+                tree.ret === 'now'
+              ) {
+                // return the corresponding instance
                 return tree.pkgs[pkgIdx].inst;
               }
 
-              // return false when this package was defined
-              // after the proxy instance was created
+              // otherwise return false
               return false;
-            }
-          };
+            };
 
-          // append method for retrieving super methods
-          Pkg.getSuper = panzer.gs;
+            // append method for retrieving super methods
+            Pkg.getSuper = panzer.gs;
 
-          // add emitter methods
-          Pkg.on = onEventer;
-          Pkg.off = offEventer;
-          // setup emitter props
-          Pkg._evts = {};
+            // add emitter methods
+            Pkg.on = onEventer;
+            Pkg.off = offEventer;
+            // setup emitter props
+            Pkg._evts = {};
 
-          // init package members
-          Pkg.attrKey =          // what defines tag/node-attribute
-          Pkg.badKey =           // what a node may not be named
-          Pkg.prepNode =         // alter a node before compilation
-          Pkg.initWithTree =     // clones all nodes before the init event
-            0;
-          Pkg.allowClone = 1;    // can nodes be cloned or do we force compile?
+            // init static package members
+            Pkg.attrKey =          // what defines tag/node-attribute
+            Pkg.badKey =           // what a node may not be named
+            Pkg.prepNode =         // alter a node before compilation
+            Pkg.prebake =          // clones all nodes before the init event
+              0;
+            Pkg.cloneable = 1;     // can nodes be cloned or do we force compile?
 
-          PkgProxyForKlass = function() {};
-          // extend current public protoype chain
-          PkgProxyForKlass.prototype = new panzer.KlassProxy();
-          // replace public prototype and expose via this package's proxy member
-          panzer.Klass.prototype =
-          Pkg.proxy =
-            PkgProxyForKlass.prototype;
-          // replace public prototype constructor
-          panzer.KlassProxy = PkgProxyForKlass;
+            PkgProxyForKlass = function() {};
+            // extend current public protoype chain
+            PkgProxyForKlass.prototype = new panzer.KlassProxy();
+            // replace public prototype and expose via this package's proxy member
+            panzer.Klass.prototype =
+            Pkg.klassFn =
+              PkgProxyForKlass.prototype;
+            // replace public prototype constructor
+            panzer.KlassProxy = PkgProxyForKlass;
 
-          // define node constructor for this package
-          PkgNode = function () {};
-          // expose node prototype
-          Pkg.node = PkgNode.prototype;
+            // register this package for this panzer, by name and index
+            pkgIdx =
+            Pkg.index =
+            panzer.pkgsIdx[pkgName] =
+              panzer.pkgs.push({
+                name: pkgName,
+                idx: panzer.pkgs.length,
+                def: Pkg,
+                proxy: PkgProxyForKlass
+              }) - 1;
+            // add to list of known packages
+            panzer.pkgNames.push(pkgName);
+            // capture package definition (for super-prototype lookups)
+            panzer.defs.push(Pkg);
+          }
 
-          // register this package for this panzer, by name and index
-          pkgIdx =
-          Pkg.index =
-          panzer.pkgsIdx[pkgName] =
-            panzer.pkgs.push({
-              name: pkgName,
-              idx: panzer.pkgs.length,
-              def: Pkg,
-              proxy: PkgProxyForKlass,
-              node: PkgNode
-            }) - 1;
-          // add to list of known packages
-          panzer.pkgNames.push(pkgName);
-          // capture package definition (for super-prototype lookups)
-          panzer.defs.push(Pkg);
+          // return package definition
+          return panzer.pkgs[panzer.pkgsIdx[pkgName]].def;
+
         }
 
-        // return package definition
-        return panzer.pkgs[panzer.pkgsIdx[pkgName]].def;
-
+        // otherwise, throw
+        throw new Error('invalid package name');
       }
 
       // return existing package names
-      return panzer.pkgNames.clone();
+      return panzer.pkgNames.concat();
     }
 
     // tests whether this panzer's packages supports cloning nodes
@@ -935,7 +1139,7 @@
         pkgIdx = pkgs.length
       ;
       while (pkgIdx) {
-        if (!pkgs[--pkgIdx].def.allowClone) {
+        if (!pkgs[--pkgIdx].def.cloneable) {
           return 0;
         }
       }
@@ -943,205 +1147,458 @@
     }
 
     // copy array of nodes as given object type
-    function cloneNodes(nodes, nodeFn) {
+    function cloneNodes(nodes) {
       var
-        clones = [],
         nodeIdx = nodes.length,
-        clone
+        clones = new Array(nodeIdx)
       ;
 
       // loop over nodes
       while (nodeIdx) {
-        // create package node instance
-        clone = new nodeFn();
-        // copy the target node to the same index
-        clones[--nodeIdx] = mix(clone, nodes[nodeIdx]);
+        // copy the target node at the same index
+        clones[--nodeIdx] = mix({}, nodes[nodeIdx]);
       }
 
       return clones;
     }
 
-    // queue and run tree navigations
-    function runTreeQueue(tree) {
-
-      // if this tree (target) is not queued...
-      if (!~treeQueue.indexOf(tree)) {
-        // add to queue
-        treeQueue.push(tree);
+    // throws when the given index is invalid
+    function validateIndexOrThrow(nodes, index) {
+      // if index is a number in nodes...
+      if (typeof index === 'number' && hasKey(nodes, index)) {
+        // return the index
+        return index;
       }
 
-      // if the queue is not executing...
-      if (!treeQueueRunning) {
-        treeQueueRunning = 1;
-        while (treeQueue.length) {
-          treeQueue.shift().go();
-        }
-        treeQueueRunning = 0;
-      }
-
+      throw new Error('invalid index "' + index + '"');
     }
 
     function tankStop() {
       var tree = this;
 
-      // if in loop and the current package is unlocked...
+      // if loop is active...
       if (tree.loop) {
         // return result of attempting to lock the tree
-        return !!tree.lock();
+        return tree.lock();
       }
+
+      return false;
+    }
+
+    function getTankInstruction(tree, setTarget, tgtIndex) {
+      var
+        tank = tree.tank,
+        target
+      ;
+
+      // if given an index is not the eventStack...
+      if (setTarget) {
+        // check node index
+        tgtIndex = validateIndexOrThrow(tree.nodes, tgtIndex);
+
+        // capture the target index
+        // otherwise, use the node as a new target
+        target =
+        tree.target =
+          tree.nodes[tgtIndex];
+
+        // update public tank property
+        tank.target = tgtIndex;
+      } else {
+        // capture current tree target - if any
+        target = tree.target;
+      }
+
+      // increment instruction count
+      tank.cc = ++tree.cc;
+
+      // return promise
+      return new Promise(function (resolve) {
+        // capture instruction
+        tree.ics.push({
+          // output object
+          o: {
+            id: tree.cc,
+            from: tree.current.index,
+            to: target ? target.index : -1
+          },
+          // capture resolver
+          // invoked, once tree completes navigation
+          r: resolve
+        });
+      });
     }
 
     // go to the existing/new navigation target
     function tankGo(tgtIndex) {
       var
         tree = this,
-        tank = tree.tank,
-        tgtNode
+        promise = getTankInstruction(tree, arguments.length, tgtIndex)
       ;
 
-      // exit early, when...
+      // take go action for this tree
+      // depends on whether tree is initialized or not
+      // avoids need for `if` statement
+      tree[tree.ret]();
+
+      return promise;
+    }
+
+    // causes this instance to wait for the given instance to complete navigating
+    function tankQueue(inst, tgtIndex) {
+      var
+        tree = this,
+        tid = tree.id,
+        instQ,
+        promise
+      ;
+
+      // attempt to retrieve tree instance from argument
+      inst = getTree(inst);
+
+      // if the first argument is not a tree...
+      if (!inst) {
+        throw new Error('invalid queue target');
+      }
+
+      // get tank instruction for same or new target
+      promise = getTankInstruction(tree, arguments.length > 1, tgtIndex);
+
+      // alias the target instance's queue
+      instQ = inst.qe;
+
+      // if not cued...
+      if (!hasKey(instQ, tid)) {
+        // add tree to target's queuees
+        instQ[tid] = tree;
+        instQ.push(tree);
+        // add the target to this tree's queue
+        tree.q[inst.id] = inst;
+        // increment ourcount of who we're waiting on
+        tree.q.push(inst);
+        // update tank
+        tree.tank.queued = true;
+        // stop navigation
+        tree.stop++;
+      }
+
+      return promise;
+    }
+
+    // block the given/implied node(s)
+    function tankBlock(promise, tgts) {
+      var
+        tree = this,
+        nodes = tree.nodes,
+        argLn = arguments.length,
+        curIdx = tree.current.index,
+        blocks = tree.b
+      ;
+
+      function doneBlocking() {
+        var released = tgts.filter(function (index) {
+          // capture newly freed nodes
+          return blocks[index] && !--blocks[index];
+        });
+
+        if (!isBlocked(tree)) {
+          tree.tank.blocked = false;
+        }
+
+        return released;
+      }
+
+      // throw when...
       if (
-        // given an argument...
-        arguments.length && (
-          // that is not a number...
-          typeof tgtIndex !== 'number' ||
-          // or is not a node index...
-          !(tgtNode = tree.nodes[tgtIndex])
-        )
+        // no agurm, or...
+        !argLn ||
+        // first argument is not a promise...
+        !isPromise(promise)
       ) {
-        return;
-      } else if (tgtNode) {
-        // otherwise, use the node as a new target
-        tree.target = tgtNode;
-        // update public tank property
-        tree.tank.targetIndex = tgtNode.index;
+        throw new Error('missing promise');
       }
 
-      // increment navigation call count
-      tank.gc = ++tree.gc;
+      // if there are tgts to resolve
+      if (argLn > 1) {
+        // if `true`...
+        if (tgts === true) {
 
-      // if in loop and this package is locked...
-      if (tree.loop) {
-        // unlock tree
-        tree.unlock();
+          // block the current node when...
+          if (
+            // out of the loop, or...
+            !tree.loop ||
+            // there is no target
+            !tree.target ||
+            // the target is same as the current node
+            tree.target.index === curIdx
+          ) {
+            // block the current node
+            tgts = [curIdx];
+          } else {
+            // target the next node
+            tgts = [getNextIndex(tree)];
+          }
+        } else {
+
+          // if not an array...
+          if (!isArray(tgts)) {
+            // make an array
+            tgts = [tgts];
+          }
+          // validate and copy all indice
+          tgts = tgts.map(validateIndexOrThrow.bind(0, nodes));
+        }
+
+      } else {
+        // target the current index
+        tgts = [curIdx];
       }
 
-      tree.go();
+      // block the targeted node(s)
+      tgts.forEach(function (tgtIdx) {
+        ++blocks[tgtIdx];
+      });
 
-      // return promise?
+      // if now blocking the current or upcoming node...
+      if (isBlocked(tree)) {
+        // stop the tank
+        ++tree.stop;
+        // update tank property
+        tree.tank.blocked = true;
+      }
+
+      // when the promise...
+      return promise.then(
+        // ...fulfills
+        function () {
+          var released = doneBlocking();
+
+          // resume navigation when...
+          if (
+            // there is a target, and...
+            tree.target &&
+            // we're not blocked...
+            !tree.tank.blocked &&
+            // we're not waiting on another instance
+            !tree.q.length
+          ) {
+            // resume navigating
+            tree.go();
+          }
+
+          // return report object
+          return {
+            from: curIdx,
+            blocked: tgts,
+            released: released
+          };
+        },
+        // ...rejects
+        function (e) {
+          // release nodes
+          doneBlocking();
+
+          // if already given an error...
+          if (is(e, Error)) {
+            // re-throw same error
+            throw e;
+          }
+
+          // otherwise, throw new Error with whatever we have
+          throw new Error(e);
+        }
+      );
     }
 
-    function tankQueue() {
-
-    }
 
     // private Tree instance
     function Tree(panzer, proxy, source, config, proxyToString, done) {
       var
         tree = this,
-        nodeIdx = 0,
-        nodes,
-        nodesLn,
+        pkgInstKeys = {},
         origTree
       ;
 
+      // pre-bind shared toString method
+      proxyToString = proxyToString.bind(tree);
+
       // instance identifier
-      tree.id = panzer.id + '-' + panzer.cnt + '-' + klassInstCnt;
-      // number of calls for this tree to navigate
-      tree.gc =
-      // flag for when navigation should stop
-      tree.stop =
-      // trip count
-      tree.tc =
-      // loop count
-      tree.lc =
-      // instruction count
-      tree.ic =
-        0;
-      // capture tree config - deleted after "init" event
-      tree.cfg = config;
+      tree.id = panzer.id + '_' + panzer.cnt + '_' + klassInstCnt;
+      // collection of tree instances waiting for the end of our navigation
+      tree.qe = [];
+      // collection of tree instances we're waiting to complete their navigation
+      tree.q = [];
+      // collection of instructions
+      tree.ics = [];
+      // event trail
+      tree.trail = [];
       // alias panzer
       tree.pzr = panzer;
       // alias public proxy instance
       tree.pxy = proxy;
+      // cache number of packages at time of instantiation
+      tree.pkgsLn = panzer.pkgs.length;
 
       // init package loop locks
-      tree.locks = new Array(panzer.pkgs.length);
+      tree.locks = new Array(tree.pkgsLn);
 
-      // init node event holds
-      tree.holds = {};
+      // fake last move as traversing on the null node
+      tree.lastMove = moveTraverseOn;
+
+      // package config - it will be removed after initialization
+      tree.j = config;
 
       // privileged (package) api for controlling this tank
       tree.tank = {
         id: tree.id,
         // the number of calls to go
-        // mirrors `tree.gc`
-        gc: 0,
-        currentIndex: 0,
-        targetIndex: -1,
+        // mirrors `tree.cc`
+        cc: 0,
+        index: 0,
+        target: -1,
+        path: '..//',
+        depth: 0,
 
         // direct tank to a node
         go: tankGo.bind(tree),
+        active: false,
 
         // stop the tank
         stop: tankStop.bind(tree),
+        stopped: false,
 
-        // navigate after the current navigation successfully completes
-        postHost: function (tgtIndex) {
-          if (treeChain.length && tree.nodes[tgtIndex]) {
-            tree.after(tgtIndex);
-          }
+        // block a tree node
+        block: tankBlock.bind(tree),
+        blocked: false,
 
-          // return promise?
-        }
+        // queue commands behind other trees
+        queue: tankQueue.bind(tree),
+        queued: false,
 
-        // get node attributes??
-        // attr: tankAttr.bind(tree)
-        // get copy of node?
-        // node: tankNode.bind(tree)
+        // override default tank.toString
+        toString: proxyToString
 
       };
 
       // add tree-bound toString method to the proxy
-      proxy.toString = proxyToString.bind(tree);
+      proxy.toString = proxyToString;
 
-      // if the source is a proxy that we can copy...
+      // compose tree package instances
+      // using packages present at initialization
+      tree.pkgs = panzer.pkgs.map(function (panzerPkg, pkgIdx) {
+        var
+          pkgName = panzerPkg.name,
+          pkgInst = new panzerPkg.def()
+        ;
+
+        // add to collection of package instances
+        pkgInstKeys[pkgName] = pkgInst;
+
+        // compose package-instance
+        pkgInst.pkgs = pkgInstKeys;
+        pkgInst.tank = tree.tank;
+        pkgInst.proxy = proxy;
+
+        // provide access to tree from this package
+        pkgInst.toString = proxyToString;
+
+        // instantiated package confguration
+        return {
+          name: pkgName,
+          idx: pkgIdx,
+          pkg: panzerPkg,
+          inst: pkgInst,
+          lock: 0
+        };
+      });
+
+      // attempt to extract an existing tree instance from the source object
+      origTree = getTree(source);
+      // if the source references an existing tree instance...
+      if (origTree) {
+        // use the original tree's source value
+        tree.raw = origTree.raw;
+      } else {
+        // capture the source as the raw property
+        tree.raw = source;
+      }
+
+      // when...
       if (
-        // raw object is a proxy instance
-        is(source, panzer.Klass) &&
-        // the private tree instance exists
-        is((origTree = source.toString(panzer)), Tree) &&
+        // we have a tree instance
+        origTree &&
         // the number of packages hasn't changed
-        panzer.pkgs.length == origTree.pkgs.length &&
-        // all packages allow cloning their nodes
+        panzer.pkgs.length == origTree.pkgsLn &&
+        // all packages allow cloning
         allPkgsAllowCloning(panzer)
       ) {
-
-        // reference the original tree's source value
-        tree.raw = origTree.raw;
-
-        // copy compiled nodes - use basic Object constructor
-        tree.nodes =
-        nodes =
-          cloneNodes(origTree.nodes, Object);
-
-        nodesLn = nodes.length;
-
-        // finish initialization
-        completeTreeInit(tree, done);
-
+        // clone existing nodes and skip compilation
+        finishTreeInit(tree, cloneNodes(origTree.nodes), done);
       } else {
-
-        // capture the source
-        tree.raw = source;
-
-        // compile nodes
-        compileNodes(tree, source, done);
+        // re-compile source
+        compileNodes(tree, tree.raw, done);
       }
 
     }
 
     Tree.prototype = {
+
+      // count of events fired on this instance
+      en: 0,
+
+      // flag for when navigation should stop
+      stop: 0,
+
+      // trip count
+      tc: 0,
+
+      // loop count
+      lc: 0,
+
+      // command count
+      cc: 0,
+
+      // readiness flag
+      // ret: 0,
+      // next move flag
+      nextMove: 0,
+
+      // resume flag
+      resuming: 0,
+
+      // number of tree instances watching our navigation
+      qeLn: 0,
+
+      // number of tree instances we're waiting to complete their navigation
+      qLn: 0,
+
+      // name of final method to invoke in `tankGo()`
+      //  "later" is until the tree initializes
+      //  "now" is used once tree has initialized
+      ret: 'later',
+
+      // called at end of `tankGo()` when tree isn't ready
+      later: function () {
+        var tree = this;
+
+        // navigate once initialized
+        tree.pxy.ready.then(function () {
+          tree.go();
+        });
+      },
+
+      // called at end of `tankGo()` once tree is ready
+      now: function () {
+        var tree = this;
+
+        // if in loop...
+        if (tree.loop) {
+          // attempt to unlock tree from the current/last package
+          tree.unlock();
+        }
+        // navigate now
+        tree.go();
+      },
 
       tally: function (eventIndex) {
         var
@@ -1151,8 +1608,8 @@
         ;
 
         return {
-          // total occurences for instance
-          instance: tickEventTally(tallies[0], eventIndex),
+          // total occurences for proxy
+          proxy: tickEventTally(tallies[0], eventIndex),
           // total occurences for node
           node: tickNodeEventTally(tallies[1], nodeIndex, eventIndex),
           // total occurences for trip
@@ -1176,13 +1633,12 @@
         // if not locked...
         if (!pkgLocks[pkgIdx]) {
           // lock this package
-          tree.locks[pkgIdx] = 1;
+          pkgLocks[pkgIdx] = 1;
           // increment stop flag
           tree.stop += pkgIdx + 1;
-
           // flag success locking
-          // return used by `tankStop()`
-          return 1;
+          // and update tank
+          return tree.tank.stopped = true;
         }
       },
 
@@ -1203,32 +1659,55 @@
           tree.stop -= pkgIdx + 1;
         }
       },
-/*
+
       // navigate towards a target node
       go: function () {
         var
           tree = this,
           nodes = tree.nodes,
           tank = tree.tank,
+          firstRun = 1,
+          nextIndex,
           clearStack,
-          postId,
-          hostTree,
-          dir,
-          inCurrentNode,
-          traversalCount = 0,
-          resuming = tree.stopped,
-          curNode = tree.current,
-          curIndex = curNode.index,
-          nextPhase = resuming ? tree.lte[curIndex] : -1,
-          nextNodeIndex = -1,
-          lastTargetIndex = resuming ? tree.target.index : null,
-          nodeEngaged,
-          endEventFired
+          gateBeginEnd,
+          gateMoveIdle,
+          gateEngageRelease
         ;
 
-        // exit when already looping
+        function completeMove() {
+          // make the next move the last move
+          tree.lastMove = tree.nextMove;
+          // clear the next move
+          tree.nextMove =
+          // flag that we're no longer resuming
+          tree.resuming =
+            0;
+        }
+
+        // update public state
+        tank.stopped = false;
+
+        // if we were waiting for other trees to navigate...
+        if (tree.q.length) {
+          // unqueue from instances we were waiting on
+          tree.q.forEach(function  (inst) {
+            var queuees = inst.qe;
+
+            // remove self as a waiting instance
+            delete queuees[tree.id];
+            queuees.splice(queuees.indexOf(tree), 1);
+          });
+
+          // create new queue
+          tree.q = [];
+        }
+        // update tank
+        tank.queued = false;
+
+        // if already looping...
         if (tree.loop) {
-          return !!tree.target;
+          // exit early
+          return;
         }
 
         // if this tree has a stack and the event stack is empty...
@@ -1239,348 +1718,365 @@
           clearStack = 1;
         }
 
-        // reset loop flags
-        tree.loop = 1;
+        // reset loop flag
+        tree.loop =
+        // set tank to match
+        tank.active =
+          true;
+        // reset stop flag
         tree.stop = 0;
         // reset package locks
-        tree.locks = [];
+        tree.locks = new Array(tree.pkgsLn);
+        // reset blocked flag
+        tank.blocked = !!isBlocked(tree);
 
+        // if resuming the last nextMove...
+        if (tree.resuming) {
+          // complete incomplete move, when...
+          if (
+            // the target changed
+            tree.lastTarget !== tree.target &&
+            // the next move changed
+            getNextMove(tree) !== tree.nextMove
+          ) {
+            // behave as if last move completed
+            tree.lastMove = tree.nextMove;
+            // clear this next move
+            tree.nextMove = 0;
+          }
+        } else { // otherwise, when new trip...
+          // init event tallies
+          tree.et[2] = createEventTally();      // trip
+          tree.et[3] = new Array(nodes.length); // path
+
+          // tick trip count
+          tree.tc++;
+          // reset leg count
+          tree.lc = 0;
+
+          // begin new event trail
+          tree.trail = [];
+        }
+
+        // create new event tally for this leg of the trip
+        tree.et[4] = createEventTally();
+        // increment leg count
+        tree.lc++;
+
+        // during loop...
         while (tree.loop) {
 
-          // if stopped or no target...
-          if (tree.stop || !tree.target) {
+          // calculate next move, when...
+          if (
+            // we have a target, and...
+            tree.target &&
+            // we're not stopped, and...
+            !tree.stop && (
+              // there's no next move, or...
+              !tree.nextMove ||
+              // this is a new target
+              tree.lastTarget !== tree.target
+            )
+          ) {
+            // capture new target as the last target
+            tree.lastTarget = tree.target;
+            // capture next move
+            tree.nextMove = getNextMove(tree);
+          }
 
-            if (firedMoveEvent) {
-              firedMoveEvent = 0;
-              tree.fire('idle');
+          // if we haven't fired "begin" yet and we haven't stopped...
+          if (!gateBeginEnd && !tree.stop && (tree.target || firstRun)) {
+            // flag that this is no longer the first run
+            firstRun = 0;
+            // if "begin" event succeeds...
+            if (tree.fire(BEGIN) !== INTERCEPT) {
+              // open gate
+              gateBeginEnd = 1;
+            }
+            continue;
+          }
+
+          // if there is a target and we haven't stopped...
+          if (tree.target && !tree.stop) {
+
+            // if we haven't fired "move" yet...
+            if (!gateMoveIdle) {
+              // if "move" event succeeds
+              if (tree.fire(MOVE) !== INTERCEPT) {
+                // open gate
+                gateMoveIdle = 1;
+              }
               continue;
             }
 
-            if (firedBeginEvent) {
-              firedBeginEvent = 0;
-              tree.fire('end');
+            // if next move is a node switch...
+            if (tree.nextMove < moveTraverseOn) {
+
+              // if engaged to the current node...
+              if (gateEngageRelease) {
+                // release the node
+                gateEngageRelease = 0;
+                // fire release event
+                tree.fire(RELEASE);
+                continue;
+              }
+
+              // if succesfully switched nodes and not stopped...
+              if (
+                tree.fire(
+                  SWITCH,
+                  [tree.current.index, (nextIndex = getSwitchIndex(tree.current, tree.nextMove))]
+                ) !== INTERCEPT &&
+                !tree.stop
+              ) {
+                // perform switch
+
+                // change the current node
+                tree.current = nodes[nextIndex];
+
+                // update tank properties
+                tank.index = tree.current.index;
+                tank.path = tree.current.path;
+                tank.depth = tree.current.depth;
+                tank.blocked = !!isBlocked(tree);
+
+                completeMove();
+              }
               continue;
+
             } else {
 
-              // flag to resume on next navigation, or not
-              tree.stopped = tree.target;
+              // (otherwise) when traversing or scoping...
 
-              // we're outta here!
-              tree.loop = 0;
-              continue;
-            }
-
-          } else {
-
-            // (otherwise) if not stopped or we have a target...
-
-            // navigation logic and events
-
-            if (tree.target) {
-
-              if (!firedMoveEvent) {
-                firedMoveEvent = 1;
-                tree.fire('move');
+              // if not engaged to the current node...
+              if (!gateEngageRelease) {
+                // if "engage" event succeeds
+                if (tree.fire(ENGAGE) !== INTERCEPT) {
+                  // open gate
+                  gateEngageRelease = 1;
+                }
                 continue;
               }
 
-              // if we have a next phase...
-              if (~nextPhase) {
-
+              // if next move is scope...
+              if (tree.nextMove > moveTraverseBover) {
+                // if successfully scoped and not stopped afterward...
+                if (
+                  tree.fire(SCOPE, [tree.nextMove - 10]) !== INTERCEPT &&
+                  !tree.stop
+                ) {
+                  completeMove();
+                }
+                continue;
               }
 
-              // if we have a next node...
-              if (~nextNodeIndex) {
-                if (curNode.ctx)
-              }
+              // (otherwise) next move is traversal..
 
-              // when...
+              // if successfully traversed and not stopped...
               if (
-                // new node target
-                lastTargetIndex !== tree.target.index ||
-                // no next phase or node
-                !(~nextPhase | ~nextNodeIndex)
+                tree.fire(TRAVERSE, [tree.nextMove - 5]) !== INTERCEPT &&
+                !tree.stop
               ) {
-                // calculate next navigation step
-                // should result in a phase or node move
-              }
 
-              //
-              if () {
+                // when...
+                if (
+                  // this is the last traversal
+                  tree.nextMove === moveTraverseOn &&
+                  // the target hasn't changed
+                  tree.lastTarget === tree.target
+                ) {
+                  // remove target
+                  tree.target = 0;
+                  // remove tank target
+                  tank.target = -1;
+                }
 
+                completeMove();
               }
-
-              if (firedEngageEvent) {
-                firedEngageEvent = 0;
-                tree.fire('release');
-                continue;
-              }
+              continue;
 
             }
 
           }
-        }
 
+          // (otherwise) when no target or we've stopped...
 
+          // if engaging the current node...
+          if (gateEngageRelease) {
+            // close gate
+            gateEngageRelease = 0;
+            // fire release event
+            tree.fire(RELEASE);
+            continue;
+          }
 
+          // if we fired "move"...
+          if (gateMoveIdle) {
+            // close gate
+            gateMoveIdle = 0;
+            // fire "idle" event
+            // report how many nodes away we are?
+            tree.fire(IDLE);
+            continue;
+          }
 
-
-
-
-
-
-
-
-
-        // navigate towards the target node, until stopped
-        while (tree.loop) {
-          if ((resuming || tree.target) && !tree.stop) {
-            endEventFired = 0;
-            if (lastTargetIndex != tree.target.index || !(~nextPhase | ~nextNodeIndex)) {
-
-              // reset tracking variables
-              inCurrentNode = tree.ctx[curIndex] === 1;
-              nextPhase = nextNodeIndex = -1;
-              lastTargetIndex = tree.target.index;
-              dir = lastTargetIndex - curIndex;
-
-              // determine where to navigate next
-              if (dir) {
-                if ((dir > 0 && curIndex < 2) || !tree.target.path.indexOf(curNode.path)) {
-                  if (inCurrentNode) {
-                    // change to first child node
-                    nextNodeIndex = curNode.firstChildIndex;
-                  } else {
-                    // traverse into the current node
-                    nextPhase = 1;
-                  }
-                } else {
-                  if (inCurrentNode) {
-                    // traverse out of the current node
-                    nextPhase = 2;
-                  } else {
-                    if (tree.target.path.indexOf(nodes[curNode.parentIndex].path)) {
-                      // reverse direction (in order to exit a branch)
-                      dir = -1;
-                    }
-                    if (dir > 0) {
-                      if (tree.lte[curIndex] == 3 || tree.lte[curIndex] == 2) {
-                        // change to next sibling node
-                        nextNodeIndex = curNode.nextIndex;
-                      } else {
-                        // traverse over the current node
-                        nextPhase = 3;
-                      }
-                    } else {
-                      if (tree.lte[curIndex] == 4 || tree.lte[curIndex] == 2) {
-                        // change to previous sibling node, if not the parent node
-                        nextNodeIndex = ~curNode.previousIndex ? curNode.previousIndex : curNode.parentIndex;
-                      } else {
-                        // traverse backwards, over the current node
-                        nextPhase = 4;
-                      }
-                    }
-                  }
-                }
-              } else {
-                // traverse into or on the current node
-                nextPhase = inCurrentNode ? 0 : 1;
-              }
-            } else if (~nextNodeIndex) {
-              // change - after disengaging - the current node
-              if (nodeEngaged) {
-                nodeEngaged = 0;
-                tree.fire('release');
-              } else {
-                tank.currentIndex = nextNodeIndex;
-                tree.fire('node', nextNodeIndex, curIndex);
-                tree.lte[curIndex] = 0;
-                curNode =
-                tree.current =
-                  nodes[nextNodeIndex];
-                curIndex = nextNodeIndex;
-                nextNodeIndex = -1;
-              }
-            } else if (!nodeEngaged) {
-                // engage the current node
-                nodeEngaged = 1;
-                tree.fire('engage');
-            } else if (!inCurrentNode && !resuming && (nextPhase == 1 || nextPhase == 2)) {
-              if (nextPhase == 2) {
-                // clear target phase
-                nextPhase = -1;
-              } else {
-                // enter the current node
-                inCurrentNode = tree.ctx[curIndex] = 1;
-              }
-            } else {
-              traversalCount++;
-              if (resuming) {
-                tree.fire('traversing', nextPhase);
-              } else {
-                tree.lte[curIndex] = nextPhase;
-
-                // reset flags when traversing "on" the current node
-                if (!nextPhase) {
-                  tree.target = 0;
-                  tank.targetIndex = -1;
-                }
-
-                tree.fire('traverse', nextPhase);
-              }
-
-              traversalCount++;
-
-              if (!tree.stop) {
-                // end uninterupted traversal event
-                tree.fire('traversed', nextPhase);
-                tree.stopped = 0;
-              }
-              // flag stopped traversals (allows stopping during "traversed" event as well)
-              tree.stopped = tree.stop;
-              resuming = 0;
-
-              if (nextPhase == 2) {
-                // exit the current node
-                inCurrentNode = tree.ctx[curIndex] = 0;
-              } else {
-                nextPhase = -1;
-              }
-            }
-          } else if (nodeEngaged) {
-            // release this node
-            nodeEngaged = 0;
-            tree.fire('release');
-          } else if (!endEventFired) {
-            // end navigation
-            endEventFired = 1;
-            tree.fire('end');
+          // if we fired "begin"...
+          if (gateBeginEnd) {
+            // close gate
+            gateBeginEnd = 0;
+            // fire "END" event
+            tree.fire(END);
+            continue;
           } else {
-            // end loop
+            // (otherwise) exit loop
             tree.loop = 0;
           }
+
         }
 
+        tank.active = false;
+
+        // capture next move on exit - if any
+        // tree.nextMove = nextMove;
+        // capture last move on exit
+        // tree.lastMove = lastMove;
+        // capture last target - if any
+        // tree.lastTarget = lastTarget;
+
+        // if we still have a target...
+        if (tree.target) {
+          // note that we're resuming the next call
+          tree.resuming = 1;
+          // clone interupted stack
+          tree.stack = eventStack.concat();
+        } else {
+
+          // (otherwise) we're done navigating...
+
+          // clear events stack
+          tree.stack = 0;
+
+          // report arrival to awaiting directions
+          // this resolves promises and is async
+          reportCompletion(tree);
+        }
+
+        // if instructed to clear the stack...
         if (clearStack) {
           // clear when the stack came from this tree stack
           eventStack = [];
         }
 
-        return traversalCount;
-      },
-
-*/
-      // index promises with the node index, event, and params
-      hold: function (evt, params, promises) {
-        var
-          tree = this,
-          holds = tree.holds,
-          holdId = evt.index + evt.type + params,
-          randomValue = Math.random()
-        ;
-        // set key for hold
-        holds[holdId] = randomValue;
-        // return promise that removes hold
-        return Promise.all(promises)
-          .then(function () {
-            // TOO DEFENSIVE???
-            // UNSURE HOW THIS WOULD NOT BE THE SAME HOLD
-            // if this is the same hold...
-            if (holds[holdId] === randomValue) {
-              // remove it
-              delete holds[holdId];
+        // if no targets and there are tree's waiting on us...
+        if (!tree.target && tree.qe.length) {
+          tree.qe.forEach(function (inst) {
+            delete inst.q[tree.id];
+            inst.q.splice(inst.q.indexOf(tree), 1);
+            // if this instance has no more dependents...
+            if (!inst.q.length) {
+              // navigate towards it's current target
+              inst.go();
             }
           });
+        }
       },
 
       // invoke package event handlers
-      // return true when the event is not stopped or held
+      // returns INTERCEPT if the given event was not fired
       fire: function (eventIndex, params) {
         var
           tree = this,
+          blocks = tree.b,
           curNode = tree.current,
-          curIndex = curNode.index,
-          eid = '' + curIndex + eventIndex + params,
-          wasHeld = hasKey(tree.holds, eid),
+          curIdx = curNode.index,
+          wasNotStopped = !tree.stop,
+          nextMove = tree.nextMove,
           rslt
         ;
 
-        // if there is a hold on this node...
-        if (wasHeld) {
-          // intercept the hold
+        // ensure params is an array
+        if (!params) {
+          params = [];
+        }
+
+        // intercept trigger, when...
+        if (
+          // this event is interceptable, and...
+          (eventIndex < RELEASE || eventIndex > END) &&
+          // the path is not clear
+          isBlocked(tree)
+        ) {
+          // intercept the block
           rslt = fireTreeEvent(
             tree,
             INTERCEPT,
+            // params
             [
+              // the intercepted path
               curNode.path,
+              // the intercepted event type and params
               {
-                type: eventNameMap[eventIdx],
+                type: eventNameMap[eventIndex],
                 params: params
-              },
-              tree.holds[eid][0].concat()
+              }//,
+              // the promise(s) blocking up navigation
+              // hold[0].concat()
             ],
-            tree.tally(INTERCEPT),
-            eid
+            tree.tally(INTERCEPT)
           );
 
-          // if the intercept result is a promise...
-          if (isPromise(rslt)) {
-            // follow up with continuation on resolve
-            rslt.then(function () {
-              // discard the hold
-              delete tree.holds[eid];
-              // if conditions allow for resuming...
-              if (
-                // we have a target
-                tree.target &&
-                // we're on the same node
-                curIndex === tree.current.index &&
-                // target is on/within our path
-                !tree.target.path.indexOf(tree.current.path)
-              ) {
-                // resume navigation
-                tree.go();
-              }
-            });
-            // exit function
-            return;
-          } else if (
-            // if no result is `false`
-            rslt.every(resultIsNotfalse) &&
+          // release block, when...
+          if (
+            // the result is an array
+            isArray(rslt) &&
             // at least one is `true`
-            rslt.some(resultIsTrue)
+            rslt.some(resultIsTrue) &&
+            // no result is `false`
+            rslt.every(resultIsNotfalse)
           ) {
-            // remove hold on this event
-            delete tree.holds[eid];
+            // clear all blocks on this node
+            blocks[curIdx] = 0;
+            // if unblocking a switch move...
+            if (nextMove < moveTraverseOn) {
+              // unblock the switch-to node as well
+              blocks[getSwitchIndex(curNode, nextMove)] = 0;
+            }
           } else {
-            // skip when the result isn't definitive
-            // this honors the hold
-            return;
+            // honor block by stopping navigation
+            // increments one value beyond what the packages can decrement
+            ++tree.stop;
+            // return the fired event
+            return INTERCEPT;
           }
         }
 
-        // increment event index, when...
-        if (
-          // there was a hold or navigation had been stopped
-          wasHeld || tree.stopped &&
-          // this is a traverse, scope, or switch event
-          eventIndex > END
-        ) {
-          // bump to corresponding  "xyz-resume" event's index
-          eventIndex++;
+        // if resuming a motion event...
+        if (tree.resuming && eventIndex > END) {
+          // if the stopped event wasn't a gate event...
+          if (!tree.nixgate) {
+            // bump to corresponding  "xyz-resume" event's index
+            eventIndex++;
+          }
+          // clear nixgate flag
+          tree.nixgate = 0;
         }
 
         // fire the target event
-        rslt = fireTreeEvent(
+        fireTreeEvent(
           tree,
           eventIndex,
           params,
-          tree.tally(eventIndex),
-          eid
+          tree.tally(eventIndex)
         );
 
-        // flag success when not stopped and no hold
-        return !tree.stop && !hasKey(tree.holds, eid);
+        // if stopped...
+        if (tree.stop) {
+          // if not stopped before...
+          if (wasNotStopped) {
+            // capture when a gate event is stopped
+            tree.nixgate = eventIndex < SWITCH;
+          }
+        }
       }
 
     };
@@ -1611,39 +2107,39 @@
             // to get next method up the prototype chain
             gs: function (methodName) {
               var
+                // index of this package definition
                 pkgEntryIdx,
                 pkgInst
               ;
-              // if given a valid string...
-              if (isFullString(methodName)) {
-                // search for matching "this" - the package definition
-                pkgEntryIdx = panzer.defs.indexOf(this);
-                // if this definition function is registered...
-                if (~pkgEntryIdx) {
-                  // create corresponding proxy instance
-                  pkgInst = new panzer.pkgs[pkgEntryIdx - 1].proxy();
-                  // if method is in the prototype (from this link in the chain)...
-                  if (isFunction(pkgInst[methodName])) {
-                    // return the matching method
-                    return pkgInst[methodName];
-                  }
+              // if this package's index is 1 or more and we have a valid method name...
+              if (
+                isFullString(methodName) &&
+                (pkgEntryIdx = panzer.defs.indexOf(this)) > 0
+              ) {
+                // create younger proxy instance
+                pkgInst = new panzer.pkgs[pkgEntryIdx - 1].proxy();
+                // if the method exists at this link in the prototype chain...
+                if (isFunction(pkgInst[methodName])) {
+                  // return the matching method
+                  return pkgInst[methodName];
                 }
               }
 
-              // (otherwise) return an empty function for continuity purposes
+              // (otherwise) return an empty function
               return function () {};
             }
           }
         ;
 
         // shared and bound by Tree instances
-        function proxyToString(platform) {
-          // if this is an internal call...
-          if (platform === panzer) {
+        function proxyToString() {
+          // if called by `#getTree()`...
+          if (arguments.callee.caller === getTree) {
+            // return instance
             return this;
           }
 
-          // emulate normal toString behavior
+          // (otherwise) emulate normal `#toString()` behavior
           return ObjectToStringResult;
         }
 
@@ -1669,9 +2165,6 @@
             done = resolve;
           });
 
-          // init proxy packages
-          inst.pkgs = {};
-
           // if there are packages...
           if (panzer.pkgs.length) {
             // define private & package instances
@@ -1690,6 +2183,7 @@
           }
 
         }
+        // capture original prototype - for testing uplinks in chain
         Klass.prototype = panzer.KlassProxy.prototype;
 
         // flag the id of this klass
@@ -1702,6 +2196,7 @@
       },
       version: '0.4.0'
     };
+
   }
 
   // initialize Panzer, based on the environment
@@ -1715,5 +2210,5 @@
 }(
   typeof define == 'function',
   typeof exports != 'undefined',
-  Object, RegExp, Promise, this
+  Array, Object, RegExp, Error, Promise, this
 );

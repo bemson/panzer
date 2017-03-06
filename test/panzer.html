@@ -6,32 +6,28 @@
 </head>
 <body>
   <h1>Panzer Test Suite</h1>
-  <p>Testing version 0.3.12, by <a href="mailto:bemson@gmail.com">Bemi Faison</a>. Source files on <a href="https://github.com/bemson/Panzer">github.com</a></p>
+  <p>Testing version 0.4.0, by <a href="mailto:bemson@gmail.com">Bemi Faison</a>. Source files on <a href="https://github.com/bemson/Panzer">github.com</a></p>
   <hr />
   <div id="mocha"></div>
   <script src="../node_modules/mocha/mocha.js"></script>
   <script src="../node_modules/chai/chai.js"></script>
   <script src="../node_modules/sinon-chai/lib/sinon-chai.js"></script>
-  <script src="../node_modules/sinon/lib/sinon.js"></script>
-  <script src="../node_modules/sinon/lib/sinon/spy.js"></script>
+  <script src="../node_modules/sinon/pkg/sinon.js"></script>
   <script>
     mocha.setup('bdd');
     chai.should();
     expect = chai.expect;
   </script>
-  <script src="../node_modules/genData/src/gendata.js"></script>
   <script src="../src/panzer.js"></script>
   <script src="panzer.js"></script>
   <script src="panzer_klass.js"></script>
-  <script src="panzer_klass_instance.js"></script>
+  <script src="panzer_klass_proxy.js"></script>
   <script src="panzer_klass_package.js"></script>
-  <script src="panzer_klass_package_parsing.js"></script>
-  <script src="panzer_klass_package_initialization.js"></script>
-  <script src="panzer_klass_package_nodes.js"></script>
-  <script src="panzer_klass_package_prototypes.js"></script>
-  <script src="panzer_klass_package_events.js"></script>
   <script src="panzer_klass_package_instance.js"></script>
-  <script src="panzer_klass_package_instance_tank.js"></script>
+  <script src="panzer_klass_package_node.js"></script>
+  <script src="panzer_tank.js"></script>
+  <script src="panzer_loop_events.js"></script>
+  <script src="panzer_event_object.js"></script>
   <script>
     mocha.run();
   </script>
